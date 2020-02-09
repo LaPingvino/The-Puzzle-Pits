@@ -3,3 +3,5 @@ Puzzle Pits is a classic 1995 DOS game from Plasmaworks.  Now it's here for you 
 This Open Source version comes without any warranty of being further developed or even being able to compile. It's just here as a way to make sure the code won't be lost in time.
 
 Puzzle Pits has been made available with the permission of the original programmer and copyright holder (Abe.Pralle@plasmaworks.com).  If you want to build upon this code, I recommend that you fork this project.
+
+The latest official compiled version by Abe Pralle himself can be found at https://ipfs.io/ipfs/QmSr8ohkDPhzFLMkGD4XYNsV6wCxLAdqfVxttjBXbrsuTW and you can help it being preserved by pinning it on your own ipfs node.
