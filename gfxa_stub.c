@@ -79,9 +79,7 @@ void sb_Play(int baseport, int buffsize) {
 /* Graphics function stubs */
 extern void Blit8(int bmap, int x, int y, int image);
 
-void LittleTile(int bmap, int x, int y, int image) {
-    Blit8(bmap, x, y, image);
-}
+
 
 
 

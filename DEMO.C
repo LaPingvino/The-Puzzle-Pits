@@ -78,45 +78,26 @@ int main()
   WORD x;
   char firstlvl[]={'D'-6,'e'-8,'m'-10,'o'-12,'0'-14,'1'-16,0};
 
-  printf("DEBUG: Starting DEMO main function...\n");
-  fflush(stdout);
-
-  // Initialize SDL compatibility layer
-  printf("DEBUG: Initializing SDL compatibility layer...\n");
-  fflush(stdout);
-  if (init_sdl_compat() < 0) {
-    fprintf(stderr, "Failed to initialize SDL\n");
+  if (init_sdl_compat() != 0) {
+    printf("Failed to initialize SDL compatibility layer\n");
     return 1;
   }
-  printf("DEBUG: SDL initialized successfully\n");
-  fflush(stdout);
+  printf("✓ SDL initialized successfully\n");
 
-  printf("DEBUG: Decrypting level name...\n");
-  fflush(stdout);
   if(firstlvl[0]!='D'){
     for(x=0;firstlvl[x]!=0;x++) firstlvl[x]+=6+2*x;  /* Decrypt */
   }
   if(cryptkey[0]!='M'){
     for(x=0;cryptkey[x]!=0;x++) cryptkey[x]+=4*x+4;
   }
-  printf("DEBUG: Decryption complete\n");
-  fflush(stdout);
-
-  printf("DEBUG: Calling gfxInit()...\n");
-  fflush(stdout);
   gfxInit();
-  printf("DEBUG: gfxInit() completed successfully\n");
-  fflush(stdout);
-  
-  printf("DEBUG: Calling ChangeMouse()...\n");
-  fflush(stdout);
+  printf("✓ Graphics system initialized\n");
   ChangeMouse(BLANKPOINTER);
-  printf("DEBUG: ChangeMouse() completed\n");
-  fflush(stdout);
   LoadShapes("gametiles",0);
 
   LoadScreen(0);
   SetPalette(2);
+  printf("✓ Game assets loaded successfully\n");
   FadeIn();
   Pause(120);
   Clear(LOGIC);

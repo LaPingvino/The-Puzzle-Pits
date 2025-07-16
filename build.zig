@@ -31,6 +31,20 @@ pub fn build(b: *std.Build) void {
         "-x", "c", // Force treat .C files as C code
     };
     
+    // Simplified C flags for debug test
+    const debug_cflags = [_][]const u8{
+        "-Wall",
+        "-O0",
+        "-g",
+        "-I.",
+        "-Wno-pointer-sign",
+        "-Wno-sign-conversion",
+        "-Wno-unknown-pragmas",
+        "-Wno-unused-variable",
+        "-Wno-unused-but-set-variable",
+        "-fno-strict-aliasing",
+    };
+    
     // SDL-specific flags
     const sdl_cflags = [_][]const u8{
         "-DUSE_SDL",
@@ -82,6 +96,63 @@ pub fn build(b: *std.Build) void {
     demo_exe.linkLibC();
     pits_exe.linkLibC();
     
+    // Create test executable for debugging
+    const test_exe = b.addTest(.{
+        .root_source_file = b.path("tests.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    
+    // Add all C sources to test executable so we can call C functions
+    for (common_sources) |src| {
+        if (use_sdl) {
+            const sdl_flags = base_cflags ++ sdl_cflags;
+            test_exe.addCSourceFile(.{ .file = b.path(src), .flags = &sdl_flags });
+        } else {
+            test_exe.addCSourceFile(.{ .file = b.path(src), .flags = &base_cflags });
+        }
+    }
+    
+    // Add compatibility layer to tests
+    if (use_sdl) {
+        const sdl_flags = base_cflags ++ sdl_cflags;
+        test_exe.addCSourceFile(.{ .file = b.path("sdl_compat.c"), .flags = &sdl_flags });
+        test_exe.linkSystemLibrary("SDL2");
+    }
+    
+    test_exe.linkLibC();
+    
+    // Create debug test executable (C-based)
+    const debug_test_exe = b.addExecutable(.{
+        .name = "debug-test",
+        .target = target,
+        .optimize = optimize,
+    });
+    
+    // Add C source file for debug test
+    if (use_sdl) {
+        const debug_sdl_flags = debug_cflags ++ sdl_cflags;
+        debug_test_exe.addCSourceFile(.{ .file = b.path("debug_test.c"), .flags = &debug_sdl_flags });
+        
+        // Add all common sources
+        for (common_sources) |src| {
+            debug_test_exe.addCSourceFile(.{ .file = b.path(src), .flags = &debug_sdl_flags });
+        }
+        
+        // Add SDL compatibility layer
+        debug_test_exe.addCSourceFile(.{ .file = b.path("sdl_compat.c"), .flags = &debug_sdl_flags });
+        debug_test_exe.linkSystemLibrary("SDL2");
+    } else {
+        debug_test_exe.addCSourceFile(.{ .file = b.path("debug_test.c"), .flags = &debug_cflags });
+        
+        // Add all common sources
+        for (common_sources) |src| {
+            debug_test_exe.addCSourceFile(.{ .file = b.path(src), .flags = &debug_cflags });
+        }
+    }
+    
+    debug_test_exe.linkLibC();
+    
     // Install executables
     const demo_install = b.addInstallArtifact(demo_exe, .{});
     const pits_install = b.addInstallArtifact(pits_exe, .{});
@@ -100,6 +171,44 @@ pub fn build(b: *std.Build) void {
     
     const pits_run_step = b.step("run-pits", "Run the main game");
     pits_run_step.dependOn(&pits_run.step);
+    
+    // Debug test run step
+    const debug_test_run = b.addRunArtifact(debug_test_exe);
+    const debug_test_run_step = b.step("debug-test", "Run comprehensive debug tests to isolate segfault");
+    debug_test_run_step.dependOn(&debug_test_run.step);
+    
+    // Create test steps
+    const test_step = b.step("test", "Run all debug tests");
+    test_step.dependOn(&test_exe.step);
+    
+    const test_run = b.addRunArtifact(test_exe);
+    const test_run_step = b.step("test-run", "Run debug tests with output");
+    test_run_step.dependOn(&test_run.step);
+    
+    // Individual test steps for specific debugging
+    const test_memory = b.addSystemCommand(&[_][]const u8{
+        "zig", "test", "tests.zig", "--test-filter", "memory"
+    });
+    const test_memory_step = b.step("test-memory", "Run memory-related tests only");
+    test_memory_step.dependOn(&test_memory.step);
+    
+    const test_sdl = b.addSystemCommand(&[_][]const u8{
+        "zig", "test", "tests.zig", "--test-filter", "sdl"
+    });
+    const test_sdl_step = b.step("test-sdl", "Run SDL-related tests only");
+    test_sdl_step.dependOn(&test_sdl.step);
+    
+    const test_graphics = b.addSystemCommand(&[_][]const u8{
+        "zig", "test", "tests.zig", "--test-filter", "graphics"
+    });
+    const test_graphics_step = b.step("test-graphics", "Run graphics-related tests only");
+    test_graphics_step.dependOn(&test_graphics.step);
+    
+    const test_fadein = b.addSystemCommand(&[_][]const u8{
+        "zig", "test", "tests.zig", "--test-filter", "fadein"
+    });
+    const test_fadein_step = b.step("test-fadein", "Run FadeIn-specific tests only");
+    test_fadein_step.dependOn(&test_fadein.step);
     
     // Create a step to download game data
     const download_data_step = b.step("download-data", "Download game data from archive.org");
@@ -168,6 +277,14 @@ pub fn build(b: *std.Build) void {
         "  zig build run-pits           # Run the main game\n" ++
         "  zig build clean              # Clean build artifacts\n" ++
         "  zig build info               # Show build configuration\n" ++
+        "\n" ++
+        "Debug Commands:\n" ++
+        "  zig build test               # Run all debug tests\n" ++
+        "  zig build test-run           # Run debug tests with detailed output\n" ++
+        "  zig build test-memory        # Test memory allocation and bounds\n" ++
+        "  zig build test-sdl           # Test SDL initialization\n" ++
+        "  zig build test-graphics      # Test graphics system\n" ++
+        "  zig build test-fadein        # Test FadeIn function components\n" ++
         "\n" ++
         "Requirements:\n" ++
         "  - SDL2 development libraries (for SDL build)\n" ++

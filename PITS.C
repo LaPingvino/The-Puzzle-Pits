@@ -93,21 +93,49 @@ int main()
   }
 
   gfxInit();
+  printf("✓ Graphics system initialized\n");
   ChangeMouse(BLANKPOINTER);
   LoadShapes("gametiles",0);
 
   LoadScreen(0);
   SetPalette(2);
+  printf("✓ Game assets loaded successfully\n");
+  printf("DEBUG: About to call first FadeIn()\n");
+  fflush(stdout);
   FadeIn();
+  printf("DEBUG: First FadeIn() completed\n");
+  fflush(stdout);
+  printf("DEBUG: About to call Pause(120)\n");
+  fflush(stdout);
   Pause(120);
+  printf("DEBUG: About to call Clear(LOGIC)\n");
+  fflush(stdout);
   Clear(LOGIC);
+  printf("DEBUG: About to call second FadeIn()\n");
+  fflush(stdout);
   FadeIn();
+  printf("DEBUG: Second FadeIn() completed\n");
+  fflush(stdout);
 
+  printf("DEBUG: Entering main game loop\n");
+  fflush(stdout);
   do{
+    printf("DEBUG: Main loop iteration starting\n");
+    fflush(stdout);
     inkey=0xff;
+    printf("DEBUG: About to call ChangeMouse(BLANKPOINTER)\n");
+    fflush(stdout);
     ChangeMouse(BLANKPOINTER);
+    printf("DEBUG: About to call LoadScreen(1)\n");
+    fflush(stdout);
     LoadScreen(1);
+    printf("DEBUG: LoadScreen(1) completed\n");
+    fflush(stdout);
+    printf("DEBUG: About to call SetPalette(3)\n");
+    fflush(stdout);
     SetPalette(3);
+    printf("DEBUG: SetPalette(3) completed\n");
+    fflush(stdout);
     ShadowText(141,148,"Enter Level Password",20,16);
     ShadowText(141,156,"Start New Game",14,1);
     ShadowText(141,164,"Quit",4,1);

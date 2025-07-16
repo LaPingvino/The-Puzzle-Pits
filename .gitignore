@@ -15,6 +15,7 @@ test_sdl
 # Build directories
 build/
 .nix/
+.zig-cache/
 
 # Nix build results
 result

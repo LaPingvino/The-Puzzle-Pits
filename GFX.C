@@ -47,6 +47,7 @@ extern void setpalette(char *colorlist);
 extern void relpos(WORD *x,WORD *y);
 extern void setkb(void);
 extern void resetkb(void);
+extern uint32_t get_ticks(void);
 
 
 /*
@@ -363,9 +364,7 @@ void GetLevelName(char *lname,WORD firsttime)
 
 ULONG Timer(void)
 {
-  static ULONG time;
-  time=(ULONG) *bios_ticks;
-  return (time*33)/10;
+  return (ULONG) get_ticks();
 }
 
 void WasteTime(void)
@@ -425,9 +424,27 @@ void erasemouse(char *screen)
   WORD i,j;
   char *dest,*src;
 
+  if (!screen) {
+    printf("ERROR: erasemouse() - screen pointer is NULL\n");
+    return;
+  }
+
+  // Bounds checking for mouse position
+  if (mx < moffx || my < moffy || mx-moffx+16 > 320 || my-moffy+16 > 200) {
+    printf("ERROR: erasemouse() - mouse position out of bounds\n");
+    return;
+  }
+
     /* erase old image */
   dest=screen+(my-moffy)*320+mx-moffx;
   src=(char *)mousebg;
+  
+  // Additional bounds check for dest pointer
+  if (dest < screen || dest >= screen + 64000) {
+    printf("ERROR: erasemouse() - dest pointer out of bounds: %p\n", dest);
+    return;
+  }
+  
   for(i=0;i<16;i++){
     for(j=0;j<16;j++){
       *dest=*src;
@@ -443,9 +460,27 @@ void copymousebg(char *screen)
   WORD i,j;
   char *dest,*src;
 
+  if (!screen) {
+    printf("ERROR: copymousebg() - screen pointer is NULL\n");
+    return;
+  }
+
+  // Bounds checking for mouse position
+  if (mx < moffx || my < moffy || mx-moffx+16 > 320 || my-moffy+16 > 200) {
+    printf("ERROR: copymousebg() - mouse position out of bounds\n");
+    return;
+  }
+
     /* save bg of new image */
   dest=(char *)mousebg;
   src=screen+(my-moffy)*320+mx-moffx;
+  
+  // Additional bounds check for src pointer
+  if (src < screen || src >= screen + 64000) {
+    printf("ERROR: copymousebg() - src pointer out of bounds: %p\n", src);
+    return;
+  }
+  
   for(i=0;i<16;i++){
     for(j=0;j<16;j++){
       *dest=*src;
@@ -461,20 +496,24 @@ void drawmouse(char *screen)
   WORD i,j;
   char *dest,*src;
 
+  if (!screen) {
+    printf("ERROR: drawmouse() - screen pointer is NULL\n");
+    return;
+  }
+
     /* put new image on screen */
   /*
   dest=screen+(my-moffy)*320+mx-moffx;
   src=shapes[mouseimage+276]+2;   //skip width & height bytes
   for(i=0;i<16;i++){
     for(j=0;j<16;j++){
-      *dest=*src;
+      if(*src!=0) *dest=*src;
       dest+=1;
       src+=1;
     }
     dest+=304;
   }
   */
-  blitmask(mx-moffx,my-moffy,(unsigned char *)shapes[mouseimage+276],screen);
 }
 
 void SetMousePos(WORD x,WORD y)
@@ -871,16 +910,45 @@ void FadeIn(void)
   char *src;             
   char *dest;
   ULONG curtime;
+  
+  // Check if pointers are valid
+  if (!logical) {
+    printf("ERROR: FadeIn() - logical pointer is NULL\n");
+    return;
+  }
+  if (!physical) {
+    printf("ERROR: FadeIn() - physical pointer is NULL\n");
+    return;
+  }
+  
   copymousebg(logical);
   drawmouse(logical);
+  
   n=0;
   for(i=0;i!=320;i+=17){
     if(i>320){i-=320;}
     if(i<320){
       src=logical+i;
       dest=physical+i;
+      
+      // Bounds checking
+      if (src < logical || src >= logical + 64000) {
+        printf("ERROR: FadeIn() - src pointer out of bounds: %p\n", src);
+        continue;
+      }
+      if (dest < physical || dest >= physical + 64000) {
+        printf("ERROR: FadeIn() - dest pointer out of bounds: %p\n", dest);
+        continue;
+      }
+      
       curtime=Timer();
       for(y=0;y<200;y++){
+        // Additional bounds check in inner loop
+        if (src < logical || src >= logical + 64000 || 
+            dest < physical || dest >= physical + 64000) {
+          printf("ERROR: FadeIn() - bounds violation in inner loop at y=%d\n", y);
+          break;
+        }
         *dest=*src;
         dest+=320;
         src+=320;
@@ -890,6 +958,7 @@ void FadeIn(void)
       n%=32;
     }
   }
+  
   erasemouse(logical);
 }
 
@@ -942,12 +1011,16 @@ void LoadShapes(char *filename,WORD pos)
   unsigned char *datpos;
   FILE *fp;
 
-  filename[0]=0;
-
+  printf("DEBUG: LoadShapes starting, reading tiles1.dat\n");
+  fflush(stdout);
   fp=ReadFile("tiles1.dat");
+  printf("DEBUG: tiles1.dat opened, reading data\n");
+  fflush(stdout);
   ReadMem(fp,shapedata1,FileSize(fp));
   CloseFile(fp);
 
+  printf("DEBUG: tiles1.dat processed, parsing shapes\n");
+  fflush(stdout);
   datpos=(unsigned char *)shapedata1;
   do{
     shapes[pos++]=(char *)datpos;
@@ -957,10 +1030,16 @@ void LoadShapes(char *filename,WORD pos)
   }while(width!=0);
   pos--;
 
+  printf("DEBUG: tiles1.dat shapes parsed, reading tiles2.dat\n");
+  fflush(stdout);
   fp=ReadFile("tiles2.dat");
+  printf("DEBUG: tiles2.dat opened, reading data\n");
+  fflush(stdout);
   ReadMem(fp,shapedata2,FileSize(fp));
   CloseFile(fp);
 
+  printf("DEBUG: tiles2.dat processed, parsing shapes\n");
+  fflush(stdout);
   datpos=(unsigned char *)shapedata2;
   do{
     shapes[pos++]=(char *)datpos;
@@ -970,10 +1049,16 @@ void LoadShapes(char *filename,WORD pos)
   }while(width!=0);
   pos--;
 
+  printf("DEBUG: tiles2.dat shapes parsed, reading tiles3.dat\n");
+  fflush(stdout);
   fp=ReadFile("tiles3.dat");
+  printf("DEBUG: tiles3.dat opened, reading data\n");
+  fflush(stdout);
   ReadMem(fp,shapedata3,FileSize(fp));
   CloseFile(fp);
 
+  printf("DEBUG: tiles3.dat processed, parsing shapes\n");
+  fflush(stdout);
   datpos=(unsigned char *)shapedata3;
   do{
     shapes[pos++]=(char *)datpos;
@@ -995,18 +1080,29 @@ void LoadShapes(char *filename,WORD pos)
     //}
   }while(width!=0);
 
+  printf("DEBUG: tiles3.dat shapes parsed, reading plasma1.fnt\n");
+  fflush(stdout);
   fp=ReadFile("plasma1.fnt");
+  printf("DEBUG: plasma1.fnt opened, reading data\n");
+  fflush(stdout);
   ReadMem(fp,fontdata,FileSize(fp));
   CloseFile(fp);
 
+  printf("DEBUG: plasma1.fnt processed, parsing font\n");
+  fflush(stdout);
   pos=32;
   datpos=(unsigned char *)fontdata;
+  i=32;  // Initialize font character index
   do{
     fontletter[i]=(char *)datpos;
     width=datpos[0];
     height=datpos[1];
     datpos+=width*height+2;
+    i++;  // Move to next character
   }while(width!=0);
+  
+  printf("DEBUG: LoadShapes completed successfully\n");
+  fflush(stdout);
 }
 
 void PlaySound(int n)
