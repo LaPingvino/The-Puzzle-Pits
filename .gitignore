@@ -1,0 +1,37 @@
+# Proprietary game data (downloaded automatically by Nix flake)
+compiled-version/
+
+# Build artifacts
+*.o
+*.exe
+*.obj
+
+# Executables
+demo
+pits
+test
+test_sdl
+
+# Build directories
+build/
+.nix/
+
+# Nix build results
+result
+result-*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
