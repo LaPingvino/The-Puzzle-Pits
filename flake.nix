@@ -124,24 +124,27 @@
           sdl = pkgs.mkShell {
             buildInputs = [
               pkgs.zig
+              pkgs.gcc
               pkgs.SDL2
               pkgs.pkg-config
             ];
             shellHook = ''
               echo "Development shell for The Puzzle Pits with SDL2"
               echo "Build with: nix build .#puzzle-pits-sdl"
-              echo "Or compile with: gcc -DUSE_SDL ..."
+              echo "Or compile with: gcc -DUSE_SDL ... (or zig cc -DUSE_SDL ...)"
+              echo "Or use Zig build system: zig build"
               echo ""
               echo "Game data will be automatically downloaded from archive.org"
             '';
           };
           
           nosdl = pkgs.mkShell {
-            buildInputs = [ pkgs.gcc ];
+            buildInputs = [ pkgs.zig pkgs.gcc ];
             shellHook = ''
               echo "Development shell for The Puzzle Pits (no SDL)"
               echo "Build with: nix build .#puzzle-pits-nosdl"
-              echo "Or compile with: gcc ..."
+              echo "Or compile with: gcc ... (or zig cc ...)"
+              echo "Or use Zig build system: zig build -Dsdl=false"
               echo ""
               echo "Game data will be automatically downloaded from archive.org"
             '';
