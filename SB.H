@@ -5,6 +5,7 @@
 *Purpose: 	Declares prototypes & #defines for SB
 ******************************************************************************/
 
+#include "FILE.H"
 
 
 #define sb_RESET				 0x6				//port

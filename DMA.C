@@ -9,11 +9,10 @@
 
 
 
-#include <conio.h>
-#include <dos.h>
+#include "compat.h"
 
-#include "sound.h"
-#include "dma.h"
+#include "OLDSOUND.H"
+#include "DMA.H"
 
 
 

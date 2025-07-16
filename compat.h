@@ -1,6 +1,9 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
+// DOS conio.h compatibility
+#define conio_h_included
+
 /* Common compatibility header
  * 
  * This header provides a compatibility layer for DOS-specific code.

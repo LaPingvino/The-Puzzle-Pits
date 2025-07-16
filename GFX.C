@@ -3,50 +3,50 @@
 ** graphics routines for PuzzlePits
 */
 
-#include "oldsound.h"
-#include <dos.h>
-#include "file.h"
-#include "gfx.h"
-#include <conio.h>
+#include "FILE.H"
+#include "OLDSOUND.H"
+#include "ENV.H"
+#include "DIG.H"
+#include "compat.h"
+#include "GFX.H"
 #include <stdio.h>
 #include <string.h>
 #include <malloc.h>
 #include <stdlib.h>
 #include <time.h>
-#include "tiledefs.h"
-#include <dir.h>
+#include <unistd.h>
+#include "TILEDEFS.H"
 
 int  oldmode;
-char far *logical;
-char far *physical=MK_FP(0xa000,0);
-char far *shapedata1,far *shapedata2,far *shapedata3;  //memory to hold shapes
-char far *fontdata;
-char far *shapes[MAXSHAPE];  //pointers to start of shape in mem
-char far *fontletter[256];
+char *logical;
+char *physical;
+char *shapedata1,*shapedata2,*shapedata3;  //memory to hold shapes
+char *fontdata;
+char *shapes[MAXSHAPE];  //pointers to start of shape in mem
+char *fontletter[256];
 char drcolor=0;
 WORD txtcursx=0,txtcursy=0;
 WORD mouseavailable,mx,my,moffx,moffy,mouseimage,button1,button2;
 unsigned char inkey;
-unsigned char far mousebg[256];
+unsigned char mousebg[256];
 char keytable[256];
 char KeyMapLower[]={"..1234567890-=..qwertyuiop[]..asdfghjkl;'`.\\zxcvbnm,./... "};
 char KeyMapUpper[]={"..!@#$%^&*()_+..QWERTYUIOP{}..ASDFGHJKL:\"~.|ZXCVBNM<>?... "};
 
-volatile unsigned int far *bios_ticks=(unsigned int far *) MK_FP(0x40,0x6c);
+volatile unsigned int *bios_ticks;
 
 env_BLASTER blaster;
 SOUND       sounds[10];
 int         blasteravailable;
 
-extern void far setmode(int mode);
-extern void far cls(char far *screen);
-extern void far screenswap(char far *screen);
-extern void far setpalette(char far *colorlist);
-extern WORD far initmouse(void);
-extern WORD far readmbutton(void);
-extern void far relpos(WORD far *x,WORD far *y);
-extern void far setkb(void);
-extern void far resetkb(void);
+extern void setmode(int mode);
+extern void cls(char *screen);
+extern void screenswap(char *screen);
+extern void setpalette(char *colorlist);
+/* initmouse and readmbutton are defined in compat.h */
+extern void relpos(WORD *x,WORD *y);
+extern void setkb(void);
+extern void resetkb(void);
 
 
 /*
@@ -68,10 +68,10 @@ void main(void)
 */
 
 
-void blitletter(unsigned char far *tile,char far *screen)
+void blitletter(unsigned char *tile,char *screen)
 {
   int deltax,width,height;
-  register int i;
+  int i;
   deltax=320 - *tile;
   width=*tile;
   tile+=1;
@@ -96,7 +96,7 @@ void text(WORD x,WORD y,CHAR *str,WORD len)
   txtcursx=x;
   txtcursy=y;
   while(len){
-    blitletter(fontletter[*str],logical);
+    blitletter((unsigned char *)fontletter[*str],logical);
     str+=1;
     len-=1;
   }
@@ -171,10 +171,10 @@ void SetColor(WORD n)
   drcolor=n;
 }
 
-void blit(int x,int y,unsigned char far *tile,char far *screen)
+void blit(int x,int y,unsigned char *tile,char *screen)
 {
   int deltax,width,height;
-  register int i;
+  int i;
   deltax=320 - *tile;
   width=*tile;
   tile+=1;
@@ -192,10 +192,10 @@ bmyloop:
   if(height>0) goto bmyloop;
 }
 
-void blitmask(int x,int y,unsigned char far *tile,char far *screen)
+void blitmask(int x,int y,unsigned char *tile,char *screen)
 {
   int deltax,width,height;
-  register int i;
+  int i;
   deltax=320 - *tile;
   width=*tile;
   tile+=1;
@@ -213,10 +213,10 @@ bmyloop:
   if(height>0) goto bmyloop;
 }
 
-void littleblitmask(int x,int y,unsigned char far *tile,char far *screen)
+void littleblitmask(int x,int y,unsigned char *tile,char *screen)
 {
   int deltax,width,height;
-  register int i;
+  int i;
   deltax=(320 - *tile)+16;
   width=*tile;
   tile+=1;
@@ -238,64 +238,69 @@ bmyloop:
 void Blit16(WORD bmap,WORD x,WORD y,WORD image)
 {
   if(bmap==LOGIC){
-    blit(x<<4,y<<4,shapes[image],logical);
+    blit(x<<4,y<<4,(unsigned char *)shapes[image],logical);
   }else{
-    blit(x<<4,y<<4,shapes[image],physical);
+    blit(x<<4,y<<4,(unsigned char *)shapes[image],physical);
   }
 }
 
 void BlitMask16(WORD bmap,WORD x,WORD y,WORD image)
 {
   if(bmap==LOGIC){
-    blitmask(x<<4,y<<4,shapes[image],logical);
+    blitmask(x<<4,y<<4,(unsigned char *)shapes[image],logical);
   }else{
-    blitmask(x<<4,y<<4,shapes[image],physical);
+    blitmask(x<<4,y<<4,(unsigned char *)shapes[image],physical);
   }
 }
 
 void Blit24(WORD bmap,WORD x,WORD y,WORD image)
 {
   if(bmap==LOGIC){
-    blit(x*24,y*24,shapes[image],logical);
+    blit(x*24,y*24,(unsigned char *)shapes[image],logical);
   }else{
-    blit(x*24,y*24,shapes[image],physical);
+    blit(x*24,y*24,(unsigned char *)shapes[image],physical);
   }
 }
 
 void BlitMask24(WORD bmap,WORD x,WORD y,WORD image)
 {
   if(bmap==LOGIC){
-    blitmask(x*24,y*24,shapes[image],logical);
+    blitmask(x*24,y*24,(unsigned char *)shapes[image],logical);
   }else{
-    blitmask(x*24,y*24,shapes[image],physical);
+    blitmask(x*24,y*24,(unsigned char *)shapes[image],physical);
   }
 }
 
 void Blit(WORD bmap,WORD x,WORD y,WORD image)
 {
   if(bmap==LOGIC){
-    blit(x,y,shapes[image],logical);
+    blit(x,y,(unsigned char *)shapes[image],logical);
   }else{
-    blit(x,y,shapes[image],physical);
+    blit(x,y,(unsigned char *)shapes[image],physical);
   }
 }
 
 void BlitMask(WORD bmap,WORD x,WORD y,WORD image)
 {
   if(bmap==LOGIC){
-    blitmask(x,y,shapes[image],logical);
+    blitmask(x,y,(unsigned char *)shapes[image],logical);
   }else{
-    blitmask(x,y,shapes[image],physical);
+    blitmask(x,y,(unsigned char *)shapes[image],physical);
   }
 }
 
-void LittleTile(WORD bmap,WORD x,WORD y,WORD image)
+void Blit8(WORD bmap,WORD x,WORD y,WORD image)
 {
-  if(bmap==LOGIC){  
-    littleblitmask(x<<3,y<<3,shapes[image],logical);
+  if(bmap==LOGIC){
+    littleblitmask(x<<3,y<<3,(unsigned char *)shapes[image],logical);
   }else{
-    littleblitmask(x<<3,y<<3,shapes[image],physical);
+    littleblitmask(x<<3,y<<3,(unsigned char *)shapes[image],physical);
   }
+}
+
+void LittleTile(int bmap, int x, int y, int image)
+{
+  Blit8(bmap, x, y, image);
 }
 
 void OwnBlit(void)
@@ -309,42 +314,47 @@ void DisownBlit(void)
 }
 
 
-void Plot(WORD x,WORD y,BYTE c,char far *vscreen)
+void Plot(WORD x,WORD y,BYTE c,char *vscreen)
 {
-  asm {
-    push es
-    mov  ax,[y]
-    mov  bx,320
-    mul  bx
-    add  ax,[x]
-    les  di,[vscreen]
-    mov  di,ax
-    mov  al,c
-    stosb
-    pop  es
-  }
+  vscreen[y * 320 + x] = c;
 }
+
+#include <dirent.h>
 
 void GetLevelName(char *lname,WORD firsttime)
 { /* returns each successive *.pit file in the levels\ directory */
-  static struct ffblk myffblk;
+  static DIR *dir = NULL;
+  static struct dirent *entry;
+  char *ext;
   WORD i;
 
   if(firsttime==0){
-    chdir("levels");
-    if(!findfirst("*.pit",&myffblk,0)){
-      strcpy(lname,myffblk.ff_name);
-    }else{
+    if(dir) closedir(dir);
+    dir = opendir("levels");
+    if(!dir){
       lname[0]=0;
-    }
-    chdir("..");
-  }else{
-    if(!findnext(&myffblk)){
-      strcpy(lname,myffblk.ff_name);
-    }else{
-      lname[0]=0;
+      return;
     }
   }
+  
+  if(!dir){
+    lname[0]=0;
+    return;
+  }
+  
+  /* Find next .pit file */
+  while((entry = readdir(dir)) != NULL){
+    ext = strrchr(entry->d_name, '.');
+    if(ext && strcasecmp(ext, ".pit") == 0){
+      strcpy(lname, entry->d_name);
+      return;
+    }
+  }
+  
+  /* No more files */
+  lname[0]=0;
+  closedir(dir);
+  dir = NULL;
   if(lname[0]!=0){
     for(i=0;lname[i]!='.' && lname[i]!=0;i++);
     lname[i]=0;
@@ -370,14 +380,14 @@ void WasteTime(void)
   if(targettime>216262) targettime=0;
 }
 
-void partialerasemouse(char far *screen,WORD newmx,WORD newmy)
+void partialerasemouse(char *screen,WORD newmx,WORD newmy)
 {     /* erase parts of old mouse not covered by new mouse */
   WORD x1,x2,y1,y2,newx1,newy1,newx2,newy2,sx,sy;
-  char far *dest,far *src,far *newmouse;
+  char *dest,*src,*newmouse;
 
     /* erase old image */
   dest=screen;
-  src=mousebg;
+  src=(char *)mousebg;
   x1=(mx-moffx);
   x2=x1+15;
   y1=my-moffy;
@@ -410,14 +420,14 @@ void partialerasemouse(char far *screen,WORD newmx,WORD newmy)
   }
 }
 
-void erasemouse(char far *screen)
+void erasemouse(char *screen)
 {
   WORD i,j;
-  char far *dest,far *src;
+  char *dest,*src;
 
     /* erase old image */
   dest=screen+(my-moffy)*320+mx-moffx;
-  src=mousebg;
+  src=(char *)mousebg;
   for(i=0;i<16;i++){
     for(j=0;j<16;j++){
       *dest=*src;
@@ -428,13 +438,13 @@ void erasemouse(char far *screen)
   }
 }
 
-void copymousebg(char far *screen)
+void copymousebg(char *screen)
 {
   WORD i,j;
-  char far *dest,far *src;
+  char *dest,*src;
 
     /* save bg of new image */
-  dest=mousebg;
+  dest=(char *)mousebg;
   src=screen+(my-moffy)*320+mx-moffx;
   for(i=0;i<16;i++){
     for(j=0;j<16;j++){
@@ -446,10 +456,10 @@ void copymousebg(char far *screen)
   }
 }
 
-void drawmouse(char far *screen)
+void drawmouse(char *screen)
 {
   WORD i,j;
-  char far *dest,far *src;
+  char *dest,*src;
 
     /* put new image on screen */
   /*
@@ -464,7 +474,7 @@ void drawmouse(char far *screen)
     dest+=304;
   }
   */
-  blitmask(mx-moffx,my-moffy,shapes[mouseimage+276],screen);
+  blitmask(mx-moffx,my-moffy,(unsigned char *)shapes[mouseimage+276],screen);
 }
 
 void SetMousePos(WORD x,WORD y)
@@ -482,7 +492,7 @@ void SetMousePos(WORD x,WORD y)
  
 void bgshiftleft(int n)
 {
-  unsigned char far *src, far *dest;
+  unsigned char *src, *dest;
   int x,y,delta;
 
   if(n==0) return;
@@ -502,7 +512,7 @@ void bgshiftleft(int n)
 
 void bgshiftright(int n)
 {
-  unsigned char far *src, far *dest;
+  unsigned char *src, *dest;
   int x,y,delta;
 
   if(n==0) return;
@@ -522,7 +532,7 @@ void bgshiftright(int n)
 
 void bgshiftup(int n)
 {
-  unsigned char far *src, far *dest;
+  unsigned char *src, *dest;
   int x,y;
 
   if(n==0) return;
@@ -539,7 +549,7 @@ void bgshiftup(int n)
 
 void bgshiftdown(int n)
 {
-  unsigned char far *src, far *dest;
+  unsigned char *src, *dest;
   int x,y;
 
   if(n==0) return;
@@ -556,14 +566,14 @@ void bgshiftdown(int n)
 
 void bgcopyleft(int n)
 {
-  unsigned char far *src, far *dest;
+  unsigned char *src, *dest;
   int x,y,delta;
 
   if(n==0) return;
   n=16-n;
   delta=n;
   dest=mousebg+n;
-  src=physical+(my-moffy)*320+(mx-moffx)+n;
+  src=(unsigned char *)physical+(my-moffy)*320+(mx-moffx)+n;
   for(y=0;y<16;y++){
     for(x=n;x<16;x++){
       *dest=*src;
@@ -577,14 +587,14 @@ void bgcopyleft(int n)
 
 void bgcopyright(int n)
 {
-  unsigned char far *src, far *dest;
+  unsigned char *src, *dest;
   int x,y,delta;
 
   if(n==0) return;
   n=16-n;
   delta=n;
   dest=mousebg;
-  src=physical+(my-moffy)*320+(mx-moffx);
+  src=(unsigned char *)physical+(my-moffy)*320+(mx-moffx);
   for(y=0;y<16;y++){
     for(x=n;x<16;x++){
       *dest=*src;
@@ -598,13 +608,13 @@ void bgcopyright(int n)
 
 void bgcopyup(int n)
 {
-  unsigned char far *src, far *dest;
+  unsigned char *src, *dest;
   int x,y;
 
   if(n==0) return;
   n=16-n;
   dest=mousebg+(n<<4);
-  src=physical+((my-moffy)+n)*320+(mx-moffx);
+  src=(unsigned char *)physical+(my-moffy)*320+(mx-moffx);
   for(y=n;y<16;y++){
     for(x=0;x<16;x++){
       *dest=*src;
@@ -617,13 +627,13 @@ void bgcopyup(int n)
 
 void bgcopydown(int n)
 {
-  unsigned char far *src, far *dest;
+  unsigned char *src, *dest;
   int x,y;
 
   if(n==0) return;
   n=16-n;
   dest=mousebg;
-  src=physical+(my-moffy)*320+(mx-moffx);
+  src=(unsigned char *)physical+(my-moffy)*320+(mx-moffx);
   for(y=n;y<16;y++){
     for(x=0;x<16;x++){
       *dest=*src;
@@ -638,7 +648,7 @@ void CheckMouse(void)
 {
   WORD x,y,mb,x1,x2,y1,y2,dx,dy,i,j;
   char newkey;
-  unsigned char far *dest,far *src;
+  unsigned char *dest,*src;
 
   if(mouseavailable){
     mb=readmbutton();
@@ -794,7 +804,7 @@ void Frame(WORD x,WORD y,WORD width,WORD height,WORD c1,WORD c2)
 {
   WORD i;
   WORD x2=x+width-1,y2=y+height-1;
-  char far *screen=logical;
+  char *screen=logical;
   screen+=y*320+x;
   for(i=x;i<x2;i++){
     *screen=c1;
@@ -824,7 +834,7 @@ void Boxf(WORD x,WORD y,WORD width,WORD height,WORD c1)
 {
   WORD deltax=320-width;
   WORD i,j,y2,x2;
-  char far *screen=logical;
+  char *screen=logical;
   screen+=y*320+x;
   x2=x+width-1;
   y2=y+height-1;
@@ -858,8 +868,8 @@ void LoadScreen(LONG n)
 void FadeIn(void)
 {
   WORD i,y,n;
-  char far *src;             
-  char far *dest;
+  char *src;             
+  char *dest;
   ULONG curtime;
   copymousebg(logical);
   drawmouse(logical);
@@ -911,19 +921,7 @@ void ScreenCopy(void)
   //This function does nothing.
 }
 
-void clearscreen(char far *vscreen)
-{
-  asm{
-    push es
-    push di
-    les  di,[vscreen]
-    mov  cx,32000
-    xor  ax,ax
-    rep  movsw
-    pop  di
-    pop  es
-  }
-}
+
 
 void Clear(WORD n)
 {
@@ -941,7 +939,7 @@ void FreeShapes(void)
 void LoadShapes(char *filename,WORD pos)
 {
   UWORD width,height,i;
-  unsigned char far *datpos;
+  unsigned char *datpos;
   FILE *fp;
 
   filename[0]=0;
@@ -950,9 +948,9 @@ void LoadShapes(char *filename,WORD pos)
   ReadMem(fp,shapedata1,FileSize(fp));
   CloseFile(fp);
 
-  datpos=shapedata1;
+  datpos=(unsigned char *)shapedata1;
   do{
-    shapes[pos++]=datpos;
+    shapes[pos++]=(char *)datpos;
     width=datpos[0];
     height=datpos[1];
     datpos+=width*height+2;
@@ -963,9 +961,9 @@ void LoadShapes(char *filename,WORD pos)
   ReadMem(fp,shapedata2,FileSize(fp));
   CloseFile(fp);
 
-  datpos=shapedata2;
+  datpos=(unsigned char *)shapedata2;
   do{
-    shapes[pos++]=datpos;
+    shapes[pos++]=(char *)datpos;
     width=datpos[0];
     height=datpos[1];
     datpos+=width*height+2;
@@ -976,9 +974,9 @@ void LoadShapes(char *filename,WORD pos)
   ReadMem(fp,shapedata3,FileSize(fp));
   CloseFile(fp);
 
-  datpos=shapedata3;
+  datpos=(unsigned char *)shapedata3;
   do{
-    shapes[pos++]=datpos;
+    shapes[pos++]=(char *)datpos;
     width=datpos[0];
     height=datpos[1];
     /*
@@ -1002,9 +1000,9 @@ void LoadShapes(char *filename,WORD pos)
   CloseFile(fp);
 
   pos=32;
-  datpos=fontdata;
+  datpos=(unsigned char *)fontdata;
   do{
-    fontletter[pos++]=datpos;
+    fontletter[i]=(char *)datpos;
     width=datpos[0];
     height=datpos[1];
     datpos+=width*height+2;
@@ -1024,15 +1022,16 @@ void gfxInit(void)
 {
   int x;
   for(x=0;x<=255;x++) keytable[x]=0;
-  oldmode=*(int far *)MK_FP(0x40,0x49);  //3  
+  oldmode = 3;  // Default text mode
 
   /*set mode to 13h (VGA 320x200)*/       
   setmode(0x13);  
-  logical=(char far *) farmalloc(64000);
-  shapedata1=(char far *) farmalloc(60000);
-  shapedata2=(char far *) farmalloc(60000);
-  shapedata3=(char far *) farmalloc(50000);
-  fontdata=(char far *) farmalloc(5000);
+  physical = (char *)vga_memory_buffer;  // Use SDL VGA buffer
+  logical=(char *) farmalloc(64000);
+  shapedata1=(char *) farmalloc(60000);
+  shapedata2=(char *) farmalloc(60000);
+  shapedata3=(char *) farmalloc(50000);
+  fontdata=(char *) farmalloc(5000);
   if(!logical || !shapedata1 || !shapedata2 || !shapedata3 || !fontdata) 
     cleanExit(1);
   mx=108;
@@ -1080,6 +1079,7 @@ void cleanExit(WORD retval)
   if(shapedata1) farfree(shapedata1);
   if(logical) farfree(logical);
   setmode(oldmode);
+  cleanup_sdl_compat();
   exit(retval);
 }
 

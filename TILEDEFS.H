@@ -1,6 +1,7 @@
 /* Misc defines */
 
-#include <dos.h>
+#include "compat.h"
+#include "FILE.H"
 
 #define _ibmpits_ 1
 #define CRKEY 28
@@ -12,14 +13,14 @@
 #define F1KEY 59
 #define F4KEY 62
 
-typedef unsigned char far CodePtr;
+typedef unsigned char CodePtr;
 
-#define NULLADDR (CodePtr *) MK_FP(0,0)
+#define NULLADDR (CodePtr *) NULL
 #define LEVELPATH "levels\\"
 
-#define strnicmp _fstrnicmp
-#define strcpy  _fstrcpy
-#define strcat  _fstrcat
+#define strnicmp strncasecmp
+/* strcpy is standard, no need to redefine */
+/* strcat is standard, no need to redefine */
 
 #define SND_CRACK     0
 #define SND_GROAN     1
@@ -56,7 +57,7 @@ typedef unsigned char far CodePtr;
 
 struct PitCode{
   char name[16];
-  unsigned char far *codeptr;
+  unsigned char *codeptr;
   WORD codesize;
   WORD next;
   WORD prev;

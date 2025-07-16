@@ -5,16 +5,14 @@
 #ifndef _file_c_
 #define _file_c_ 1
 
-#include "file.h"
+#include "FILE.H"
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <mem.h>
-#include <conio.h>
 
 void Pause(LONG n);  //defined in gfx.c
 
-extern char far *shapedata;
+extern char *shapedata;
 
 union wordbytes{
   WORD word;
@@ -25,7 +23,7 @@ char cryptkey[]={'M'-4,'i'-8,'n'-12,'d'-16,'y'-20,0};
 
 void cleanExit(WORD retval);
 
-LONG Encrypt(char far *data,char *key)
+LONG Encrypt(char *data,char *key)
 {
   LONG i=0,keypos=0;
 
@@ -36,7 +34,7 @@ LONG Encrypt(char far *data,char *key)
   return i;
 }
 
-void Decrypt(char far *data,char *key,LONG slen)
+void Decrypt(char *data,char *key,LONG slen)
 {
   LONG i=0,keypos=0;
   while(slen>0){
@@ -68,11 +66,11 @@ FILE *ReadFile(char *fname)
 
 ULONG FileSize(FILE *fp)
 {
-  fpos_t pos,endpos;
-  fgetpos(fp,&pos);
-  fseek(fp,0,SEEK_END);
-  fgetpos(fp,&endpos);
-  fsetpos(fp,&pos);
+  long pos, endpos;
+  pos = ftell(fp);
+  fseek(fp, 0, SEEK_END);
+  endpos = ftell(fp);
+  fseek(fp, pos, SEEK_SET);
   return ((ULONG) endpos);
 }
 
@@ -93,7 +91,7 @@ void CloseFile(FILE *fp)
   fclose(fp);
 }
 
-void ReadMem(FILE *fp, char far *addr, ULONG size)
+void ReadMem(FILE *fp, char *addr, ULONG size)
 {
   static char buffer[4096];
 
@@ -105,6 +103,7 @@ void ReadMem(FILE *fp, char far *addr, ULONG size)
   }
   fread(buffer,size,1,fp);
   _fmemcpy(addr,buffer,size);
+  addr+=size;
 }
 
 UBYTE ReadUByte(FILE *fp)
@@ -121,7 +120,7 @@ WORD ReadWord(FILE *fp)
   return data.word;
 }
 
-void ReadString(FILE *fp,char far *str)
+void ReadString(FILE *fp,char *str)
 {
   WORD size;
   size=ReadWord(fp)^22;

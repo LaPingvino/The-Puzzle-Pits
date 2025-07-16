@@ -2,6 +2,7 @@
    10.21.95 by Abe Pralle
 */
 
+#include "FILE.H"
 
 #define MAXSHAPE 300
 #define LOGIC 0
@@ -38,11 +39,11 @@ void ScreenCopySidebar(void);
 void LoadSprites(void);
 void FreeSprites(void);
 
-void Plot(WORD x,WORD y,BYTE c,char far *vscreen);
+void Plot(WORD x,WORD y,BYTE c,char *vscreen);
 
 void ScreenSwap(void);
 void ScreenCopy(void);
-void clearscreen(char far *vscreen);
+void clearscreen(char *vscreen);
 void Clear(WORD n);
 void FreeShapes(void);
 void LoadShapes(char *filename,WORD pos);

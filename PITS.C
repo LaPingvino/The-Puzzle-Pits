@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <string.h>
-#include "file.h"
-#include "tiledefs.h"
-#include "gfx.h"
+#include "FILE.H"
+#include "TILEDEFS.H"
+#include "GFX.H"
+#include "compat.h"
 
 typedef struct {
   WORD crack,groan,magic,plateoff,plateon,scrape,water,lava,splinter,glass;
@@ -26,10 +27,10 @@ extern unsigned char keytable[256];
 
 struct PitCode  pitcodedef[MAXPITCODE];
 #ifdef _amigapits_
-__far unsigned char code[MAXCODEMEMORY];
+unsigned char code[MAXCODEMEMORY];
 #endif
 #ifdef _ibmpits_
-unsigned char far code[32768];
+unsigned char code[32768];
 #endif
 UWORD totalcode;
 
@@ -39,7 +40,7 @@ WORD  path[23][23],lastpushed[23][23],arrows[442],plates[442];
 WORD  lastpathx,lastpathy;
 WORD  pcmaster,pcintro,pcredg,pcgreeng,pcblueg;
 WORD  regs[NUMREGISTERS];
-CHAR  inline[80];
+CHAR  input_line[80];
 WORD  levelnotdone,levelrepeat,levelwon;
 WORD  mouseinput=1;
 
@@ -71,12 +72,18 @@ void  IncrementLevel(void);
 void  CheckLevelDone(void);
 void  GameMainLoop(void);
 
-main()
+int main()
 {
   WORD choice,menuitem,oldmenuitem,notdone,x;
   FILE *fp;
   char fname[40],password[40];
   char firstlvl[]={'L'-6,'e'-8,'v'-10,'e'-12,'l'-14,'0'-16,'1'-18,0};
+
+  // Initialize SDL compatibility layer
+  if (init_sdl_compat() < 0) {
+    fprintf(stderr, "Failed to initialize SDL\n");
+    return 1;
+  }
 
   if(firstlvl[0]!='D'){
     for(x=0;firstlvl[x]!=0;x++) firstlvl[x]+=6+2*x;  /* Decrypt */
@@ -179,7 +186,7 @@ main()
               if(ReadWord(fp)==0x0895) ReadString(fp,fname);
               CloseFile(fp);
             }
-          }while(stricmp(password,fname)!=0 && gamevars.level[0]!=0);
+          }while(strcasecmp(password,fname)!=0 && gamevars.level[0]!=0);
           IncrementLevel();
         }
         if(gamevars.level[0]!=0){
@@ -474,7 +481,7 @@ void RunPitCode(WORD index,WORD x,WORD y,WORD onoff){
         a=((pos[0])<<8)+pos[1];
         pos+=2;
 
-        if(strnicmp(&pos[2],inline,a)!=0){
+        if(strnicmp((char*)&pos[2],input_line,a)!=0){
           pos+=((pos[0])<<8)+pos[1];
           if(*pos==CMD_ELSE) pos+=3;
         }else{
@@ -820,7 +827,7 @@ void PrintText(CodePtr *pos,WORD len,WORD input)
       backup=0;
       s=i;
       while(tlen<205 && pos[i]!=10 && i<len){
-        tlen+=TxtLength(&pos[i],1);
+        tlen+=TxtLength((CHAR*)&pos[i],1);
         if(pos[i]==' ') backup=1;
         i++;
       }
@@ -829,7 +836,7 @@ void PrintText(CodePtr *pos,WORD len,WORD input)
           i--;
         }
       }
-      if(i>s) StoneText(4,y,&pos[s],i-s,0);
+      if(i>s) StoneText(4,y,(CHAR*)&pos[s],i-s,0);
       y+=11;
       while(pos[i]==' ') i++;
       if(pos[i]==10) i++;
@@ -849,20 +856,20 @@ void PrintText(CodePtr *pos,WORD len,WORD input)
       inkey=0xff;
       while(inkey!=13){
         Boxf(3,y-7,200,10,5);
-        StoneText(4,y,inline,x,0);
-        StoneText(4+TxtLength(inline,x),y,"_",1,0);
+        StoneText(4,y,input_line,x,0);
+        StoneText(4+TxtLength(input_line,x),y,"_",1,0);
         ScreenSwap();
         inkey=0xff;
         do{
           CheckMouse();
         }while(inkey==0xff);
         if(inkey>=' ' && inkey<=126 && x<16){
-          inline[x++]=inkey;
+          input_line[x++]=inkey;
         }
         if(inkey==8 && x>0) x--;   //backspace
       }
-      inline[x]=0;  //null terminate string
-      strcpy(scanbuffer,inline);
+      input_line[x]=0;  //null terminate string
+      strcpy(scanbuffer,input_line);
       sscanf(scanbuffer,"%d",&regs[REG_INPUTVALUE-201]);
       //SetMousePos(oldx,oldy);  //Restore mouse as favor to keyboard users
     }else{
@@ -910,7 +917,7 @@ void SetupGame(void)
 void  DrawItemBox(WORD x,WORD y,WORD image,WORD quantity,WORD fnkey)
 {
   static char quanstring[6];
-  static tlen;
+  static int tlen;
 
   if(quantity==0){
     Boxf(x-6,y,32,36,5);
@@ -1014,11 +1021,11 @@ WORD GameLoadLevel(void)
     while(numpitcode){
       i=ReadWord(fp);
       ReadString(fp,pitcodedef[i].name);
-      if(stricmp(pitcodedef[i].name,"Intro")==0) pcintro=i;
-      else if(stricmp(pitcodedef[i].name,"Master")==0) pcmaster=i;
-      else if(stricmp(pitcodedef[i].name,"RedGem")==0) pcredg=i;
-      else if(stricmp(pitcodedef[i].name,"GreenGem")==0) pcgreeng=i;
-      else if(stricmp(pitcodedef[i].name,"BlueGem")==0) pcblueg=i;
+      if(strcasecmp(pitcodedef[i].name,"Intro")==0) pcintro=i;
+      else if(strcasecmp(pitcodedef[i].name,"Master")==0) pcmaster=i;
+      else if(strcasecmp(pitcodedef[i].name,"RedGem")==0) pcredg=i;
+      else if(strcasecmp(pitcodedef[i].name,"GreenGem")==0) pcgreeng=i;
+      else if(strcasecmp(pitcodedef[i].name,"BlueGem")==0) pcblueg=i;
       pitcodedef[i].codesize=ReadWord(fp);
       pitcodedef[i].codeptr=ReadWord(fp)+code;
       if(pitcodedef[i].codesize==0){
@@ -1027,7 +1034,7 @@ WORD GameLoadLevel(void)
       numpitcode--;
     }
     totalcode=ReadWord(fp);
-    ReadMem(fp,code,totalcode);
+    ReadMem(fp,(char*)code,totalcode);
     for(i=0,keypos=0;i<totalcode;i++){
       code[i]^=key[keypos++];
       if(key[keypos]==0) keypos=0;
@@ -1146,7 +1153,7 @@ void MagicEye(void)
   WORD underguy,walkframe,guyframe,magic;
   static WORD walkframemap[]={0,16,0,32};
   static WORD pushframemap[]={0,16,0,16};
-  REGISTER WORD tile;
+  WORD tile;
   WORD x,y,i;
 
   underguy=over[regs[REG_XGUY-201]][regs[REG_YGUY-201]];
@@ -1213,7 +1220,7 @@ void Gdrall(void)
   static WORD pushframemap[]={0,16,0,16};
   static ULONG lastdrew=0;
   static char movestring[16];
-  REGISTER WORD tile;
+  WORD tile;
 
   flashx=glassflash%9;
   flashy=glassflash/9;

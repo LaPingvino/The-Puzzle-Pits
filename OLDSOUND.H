@@ -3,7 +3,9 @@
 ** 11.6.95 by Abe Pralle
 */
 
-#include "file.h"
+#include "FILE.H"
+
+// Forward declaration (removed to avoid conflicts - include ENV.H where needed)
 
 #ifndef DWORD
 	#define DWORD unsigned long
@@ -22,25 +24,18 @@
 #endif
 
 
+#ifndef SOUND_DEFINED
+#define SOUND_DEFINED
 typedef struct
 {
-	INT8    far *samples;
+	INT8    *samples;
 	DWORD  length;
 
 } SOUND;
-
-typedef struct
-{
-	WORD ioaddr;
-	BYTE irqlev;
-	BYTE dmachan;
-
-} env_BLASTER;
-
-INT8 env_GetBlaster(env_BLASTER *blaster);
+#endif
 
 
-INT8 dig_Init(env_BLASTER *blaster);
+
 void dig_Kill(void);
 void dig_Play(SOUND *sound);
 
@@ -67,4 +62,4 @@ void sb_Speed(WORD baseport, WORD rate, BYTE numchan);
 void sb_Play(WORD baseport, WORD buffsize);
 void sb_WriteDSP(WORD baseport, BYTE value);
 
-void dma_ProgramChan(BYTE chan, INT8 far *sound, WORD numsamps);
+void dma_ProgramChan(BYTE chan, INT8 *sound, WORD numsamps);

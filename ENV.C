@@ -11,8 +11,8 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "sound.h"
-#include "env.h"
+#include "OLDSOUND.H"
+#include "ENV.H"
 
 
 

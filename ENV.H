@@ -5,8 +5,11 @@
 *Purpose: 	Contains code get the SB setting from the BLASTER variable
 ******************************************************************************/
 
+#include "FILE.H"
 
 
+#ifndef ENV_BLASTER_DEFINED
+#define ENV_BLASTER_DEFINED
 typedef struct
 {
 	WORD ioaddr;
@@ -14,6 +17,7 @@ typedef struct
 	BYTE dmachan;
 
 } env_BLASTER;
+#endif
 
 
 

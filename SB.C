@@ -11,8 +11,8 @@
 #include <conio.h>
 #include <stdlib.h>
 
-#include "sound.h"
-#include "sb.h"
+#include "OLDSOUND.H"
+#include "SB.H"
 
 
 

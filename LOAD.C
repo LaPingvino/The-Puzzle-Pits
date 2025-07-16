@@ -7,19 +7,18 @@
 
 
 
-#include <sys\types.h>
-#include <sys\stat.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <stdio.h>
-#include <dos.h>
-#include <conio.h>
+#include "compat.h"
 #include <stdlib.h>
 #include <malloc.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-#include "sound.h"
-#include "env.h"
+#include "OLDSOUND.H"
+#include "ENV.H"
 
 
 

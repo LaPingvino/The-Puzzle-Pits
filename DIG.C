@@ -13,14 +13,13 @@
 
 
 #include <stdio.h>
-#include <conio.h>
-#include <dos.h>
+#include "compat.h"
 
-#include "sound.h"
-#include "env.h"
-#include "dig.h"
-#include "sb.h"
-#include "dma.h"
+#include "OLDSOUND.H"
+#include "ENV.H"
+#include "DIG.H"
+#include "SB.H"
+#include "DMA.H"
 
 
 
@@ -39,7 +38,7 @@
 
 //INTERRUPT REQUEST NUMBER #0    #1      #2      #3      #4      #5      #6      #7
 static BYTE intnum[8]  = {0x00, 0x00, 0x0a, 0x0b, 0x00, 0x0d, 0x00, 0x0f};
-static BYTE onmask[8]  = {0x00, 0x00, 0xfb, 0xf7, 0x00, 0xdf, 0x00, 0x7f};
+static BYTE onmask[8]  = {0x00, 0x00, (BYTE)0xfb, (BYTE)0xf7, 0x00, (BYTE)0xdf, 0x00, 0x7f};
 
 
 static INT8 unadjustedbuffer[dig_ALLOCSIZE];
