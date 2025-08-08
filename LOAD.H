@@ -7,4 +7,4 @@
 
 
 
-INT8 load_Wave(char *filename, SOUND *sound);
+INT8 load_Wave(const char *filename, SOUND *sound);

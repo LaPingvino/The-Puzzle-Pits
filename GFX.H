@@ -8,8 +8,8 @@
 #define LOGIC 0
 #define PHYSIC 1
 
-void Txt(WORD x,WORD y,CHAR *str,WORD len);
-WORD TxtLength(CHAR *str,WORD len);
+void Txt(WORD x,WORD y,const CHAR *str,WORD len);
+WORD TxtLength(const CHAR *str,WORD len);
 void SetPalette(WORD n);
 void SetColor(WORD n);
 
@@ -27,6 +27,7 @@ void GetLevelName(char *lname,WORD firsttime);
 ULONG Timer(void);
 void WasteTime(void);
 void SetMousePos(WORD x,WORD y);
+void CheckKeyboard(void);
 void CheckMouse(void);
 void ChangeMouse(WORD n);
 void Frame(WORD x,WORD y,WORD width,WORD height,WORD c1,WORD c2);
@@ -46,7 +47,7 @@ void ScreenCopy(void);
 void clearscreen(char *vscreen);
 void Clear(WORD n);
 void FreeShapes(void);
-void LoadShapes(char *filename,WORD pos);
+void LoadShapes(const char *filename,WORD pos);
 
 void PlaySound(int n);
 

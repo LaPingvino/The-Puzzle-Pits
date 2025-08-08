@@ -92,27 +92,27 @@ bmyloop:
 }
 
 
-void text(WORD x,WORD y,CHAR *str,WORD len)
+void text(WORD x,WORD y,const CHAR *str,WORD len)
 {
   txtcursx=x;
   txtcursy=y;
   while(len){
-    blitletter((unsigned char *)fontletter[*str],logical);
+    blitletter((unsigned char *)fontletter[(unsigned char)*str],logical);
     str+=1;
     len-=1;
   }
 }
 
-void Txt(WORD x,WORD y,CHAR *str,WORD len)
+void Txt(WORD x,WORD y,const CHAR *str,WORD len)
 {
   text(x,y-6,str,len);  // 6 pixel correction from Amiga's baseline
 }
 
-WORD TxtLength(CHAR *str,WORD len)
+WORD TxtLength(const CHAR *str,WORD len)
 {
   WORD total=0;
   while(len>0){
-    total += *fontletter[*str];
+    total += *fontletter[(unsigned char)*str];
     str+=1;
     len--;
   }
@@ -398,7 +398,18 @@ void partialerasemouse(char *screen,WORD newmx,WORD newmy)
   sy=y1;
   dest+=y1*320+x1;
   newmouse=shapes[mouseimage+276]+2;   //skip width & height bytes
-  newmouse+=((y1-newy1)<<4)+(x1-newx1);
+  // Prevent negative array offsets that cause crashes
+  {
+    int dy = y1-newy1;
+    int dx = x1-newx1;
+    int offset = (dy<<4)+dx;
+    if(offset >= 0) {
+      newmouse+=offset;
+    } else {
+      // If offset would be negative, just use the base pointer
+      // This prevents crashes but mouse drawing may be slightly off
+    }
+  }
   while(sy<=y2){
     sx=x1;
     while(sx<=x2){
@@ -683,12 +694,31 @@ void bgcopydown(int n)
   }
 }
 
+// SDL-specific keypress handling
+extern int get_next_keypress(void);
+
+void CheckKeyboard(void)
+{
+  // Always process SDL events for keyboard input
+  readmbutton();
+  
+  // Get next keypress from SDL queue if inkey is clear
+  if (inkey == 0xff) {
+    int key = get_next_keypress();
+    if (key > 0) {
+      inkey = key;
+      printf("DEBUG: SDL keypress: %d (char: '%c')\n", inkey, (inkey >= 32 && inkey <= 126) ? inkey : '?');
+      fflush(stdout);
+    }
+  }
+}
+
 void CheckMouse(void)
 {
   WORD x,y,mb,x1,x2,y1,y2,dx,dy,i,j;
-  char newkey;
   unsigned char *dest,*src;
 
+#if MOUSE_ENABLED
   if(mouseavailable){
     mb=readmbutton();
     button1=mb & 1;
@@ -763,36 +793,15 @@ void CheckMouse(void)
       drawmouse(physical);
     }
   }
-    /* now check keyboard */
-  newkey=*keytable;
-  if(newkey>0 && newkey<83){   
-    *keytable=0;
-    switch(newkey){
-      case 14: inkey=8; break;   //backspace
-      case 28: inkey=13; break;  //enter
-      case 1:  inkey=27; break;  //escape
-      case 83: inkey=127; break; //delete
-      case 72: inkey=28; break;  //up arrow
-      case 80: inkey=29; break;  //down arrow
-      case 77: inkey=30; break;  //right arrow
-      case 75: inkey=31; break;  //left arrow
-      default:
-        if(newkey>=59 && newkey<=68){  //function keys
-          inkey=newkey+70;
-        }else{
-          if(keytable[42] || keytable[54]){
-            inkey=KeyMapUpper[newkey];
-          }else{
-            inkey=KeyMapLower[newkey];
-          }
-          if(inkey=='.' && newkey!=52) inkey=0xff;
-        }
-    }
-  }
+#endif
+  
+  // Always check keyboard regardless of mouse setting
+  CheckKeyboard();
 }
      
 void ChangeMouse(WORD n)
 {
+#if MOUSE_ENABLED
   if(mouseimage!=n){
     erasemouse(physical);
     switch(n){
@@ -837,6 +846,7 @@ void ChangeMouse(WORD n)
     mouseimage=n;
     drawmouse(physical);
   }
+#endif
 }
 
 void Frame(WORD x,WORD y,WORD width,WORD height,WORD c1,WORD c2)
@@ -1005,7 +1015,7 @@ void FreeShapes(void)
   //this function does nothing special (holdover from Amiga version)
 }
 
-void LoadShapes(char *filename,WORD pos)
+void LoadShapes(const char *filename,WORD pos)
 {
   UWORD width,height,i;
   unsigned char *datpos;
@@ -1130,6 +1140,7 @@ void gfxInit(void)
   fontdata=(char *) farmalloc(5000);
   if(!logical || !shapedata1 || !shapedata2 || !shapedata3 || !fontdata) 
     cleanExit(1);
+#if MOUSE_ENABLED
   mx=108;
   my=84;
   moffx=7;
@@ -1137,6 +1148,10 @@ void gfxInit(void)
   mouseimage=BLANKPOINTER;
   mouseavailable=initmouse();
   copymousebg(physical);
+#else
+  mouseavailable=0;
+  printf("DEBUG: Mouse support disabled (MOUSE_ENABLED=0)\n");
+#endif
   setkb();
   blasteravailable=env_GetBlaster(&blaster);
   if(blasteravailable){

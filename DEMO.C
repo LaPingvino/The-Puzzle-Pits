@@ -52,8 +52,8 @@ void  SetRegVal(CodePtr **pos, WORD newvalue);
 void  RunPitCode(WORD index,WORD x,WORD y,WORD onoff);
 void  CheckGameTileLogic(WORD x,WORD y);
 void  PrintText(CodePtr *pos,WORD len,WORD input);
-void  StoneText(WORD x,WORD y,CHAR *str,WORD n,WORD c);
-void  ShadowText(WORD x,WORD y,CHAR *str,WORD n,WORD c);
+void  StoneText(WORD x,WORD y,const CHAR *str,WORD n,WORD c);
+void  ShadowText(WORD x,WORD y,const CHAR *str,WORD n,WORD c);
 void  SetupGame(void);
 void  DrawItemBox(WORD x,WORD y,WORD image,WORD quantity,WORD fnkey);
 void  UpdateItem(WORD image);
@@ -788,7 +788,7 @@ void PrintText(CodePtr *pos,WORD len,WORD input)
   }
 }
 
-void StoneText(WORD x,WORD y,CHAR *str,WORD n,WORD c)
+void StoneText(WORD x,WORD y,const CHAR *str,WORD n,WORD c)
 {
   SetColor(3);
   Txt(x-1,y,str,n);
@@ -800,7 +800,7 @@ void StoneText(WORD x,WORD y,CHAR *str,WORD n,WORD c)
   Txt(x,y,str,n);
 }
 
-void ShadowText(WORD x,WORD y,CHAR *str,WORD n,WORD c)
+void ShadowText(WORD x,WORD y,const CHAR *str,WORD n,WORD c)
 {
   SetColor(0);
   Txt(x+1,y+1,str,n);

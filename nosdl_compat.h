@@ -6,6 +6,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
+// Only define stub functions if not using full implementation
+#ifndef USE_FULL_COMPAT_IMPL
+
 // DOS compatibility macros
 #define MK_FP(seg, off) ((void*)((seg << 4) + off))
 #define farmalloc(size) malloc(size)
@@ -63,7 +66,6 @@ static inline void _dos_setvect(int intno, interrupt_handler handler) {
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
-
 // Video mode functions
 static inline void setmode(int mode) {
     if (mode == 0x13) {
@@ -120,6 +122,10 @@ static inline int getch(void) {
     return getchar();
 }
 
+static inline int get_next_keypress(void) {
+    return 0;  // No keypress in stub mode
+}
+
 // Timer functions
 static inline uint32_t get_ticks(void) {
     return 0;
@@ -128,8 +134,6 @@ static inline uint32_t get_ticks(void) {
 static inline void delay(uint32_t ms) {
     (void)ms;
 }
-
-// Sound stubs - typedefs moved to OLDSOUND.H to avoid duplication
 
 // Initialize compatibility layer
 static inline int init_sdl_compat(void) {
@@ -147,5 +151,9 @@ static inline void cleanup_sdl_compat(void) {
         vga_memory_buffer = NULL;
     }
 }
+
+// Sound stubs - typedefs moved to OLDSOUND.H to avoid duplication
+
+#endif // USE_FULL_COMPAT_IMPL
 
 #endif // NOSDL_COMPAT_H

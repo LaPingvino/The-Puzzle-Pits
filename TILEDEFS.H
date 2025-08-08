@@ -16,7 +16,7 @@
 typedef unsigned char CodePtr;
 
 #define NULLADDR (CodePtr *) NULL
-#define LEVELPATH "levels\\"
+#define LEVELPATH "levels/"
 
 #define strnicmp strncasecmp
 /* strcpy is standard, no need to redefine */

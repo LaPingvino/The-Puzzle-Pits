@@ -39,7 +39,7 @@ typedef struct
 void dig_Kill(void);
 void dig_Play(SOUND *sound);
 
-int  load_Wave(char *filename, SOUND *sound);
+int  load_Wave(const char *filename, SOUND *sound);
 
 #define sb_RESET         0x6                            //port
 #define sb_READ_DATA     0xa                            //port

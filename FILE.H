@@ -21,11 +21,13 @@ typedef char CHAR;
 
 extern char cryptkey[];
 
-void Error(char *mesg);
+void Error(const char *mesg);
 
 FILE *ReadFile(char *fname);
 ULONG FileSize(FILE *fp);
 WORD Exists(char *fname);
+FILE *fopen_case_insensitive(char *fname, const char *mode);
+void set_file_debug(int enable);
 void CloseFile(FILE *fp);
 
 void ReadMem(FILE *fp, char *addr, ULONG size);

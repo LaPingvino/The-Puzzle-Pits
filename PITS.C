@@ -51,8 +51,8 @@ void  SetRegVal(CodePtr **pos, WORD newvalue);
 void  RunPitCode(WORD index,WORD x,WORD y,WORD onoff);
 void  CheckGameTileLogic(WORD x,WORD y);
 void  PrintText(CodePtr *pos,WORD len,WORD input);
-void  StoneText(WORD x,WORD y,CHAR *str,WORD n,WORD c);
-void  ShadowText(WORD x,WORD y,CHAR *str,WORD n,WORD c);
+void  StoneText(WORD x,WORD y,const CHAR *str,WORD n,WORD c);
+void  ShadowText(WORD x,WORD y,const CHAR *str,WORD n,WORD c);
 void  SetupGame(void);
 void  DrawItemBox(WORD x,WORD y,WORD image,WORD quantity,WORD fnkey);
 void  UpdateItem(WORD image);
@@ -120,7 +120,7 @@ int main()
   printf("DEBUG: Entering main game loop\n");
   fflush(stdout);
   do{
-    printf("DEBUG: Main loop iteration starting\n");
+    printf("DEBUG: Main menu loop iteration starting\n");
     fflush(stdout);
     inkey=0xff;
     printf("DEBUG: About to call ChangeMouse(BLANKPOINTER)\n");
@@ -209,7 +209,10 @@ int main()
             if(gamevars.level[0]!=0){
               strcpy(fname,LEVELPATH);
               strcat(fname,gamevars.level);
-              strcat(fname,".pit");
+              // Only add .pit extension if it's not already there
+              if (strlen(gamevars.level) < 4 || strcmp(&gamevars.level[strlen(gamevars.level)-4], ".pit") != 0) {
+                strcat(fname,".pit");
+              }
               fp=ReadFile(fname);
               if(ReadWord(fp)==0x0895) ReadString(fp,fname);
               CloseFile(fp);
@@ -227,15 +230,25 @@ int main()
         }
         break;
       case 1:
+        printf("DEBUG: Start New Game selected\n");
+        fflush(stdout);
         strcpy(gamevars.level,firstlvl);
+        printf("DEBUG: Level set to: '%s'\n", gamevars.level);
+        fflush(stdout);
         Clear(LOGIC);
         FadeIn();
         SetPalette(1);
+        printf("DEBUG: About to call GameMainLoop()\n");
+        fflush(stdout);
         GameMainLoop();
+        printf("DEBUG: GameMainLoop() returned\n");
+        fflush(stdout);
         Clear(LOGIC);
         FadeIn();
         break;
     }
+    printf("DEBUG: Menu choice was: %d\n", choice);
+    fflush(stdout);
   }while(choice!=2);
   FreeShapes();
   Clear(LOGIC);
@@ -248,16 +261,17 @@ void ReadRun(FILE *fp,WORD *data)
 {
   UBYTE n;
   WORD i,tile;
+  const WORD MAX_SIZE = 23*23; // 529 elements for 23x23 arrays
 
-  for(i=0;i<24;i++) data[i]=0;
-  while(i<505){
+  for(i=0;i<24 && i<MAX_SIZE;i++) data[i]=0;
+  while(i<505 && i<MAX_SIZE){
     n=ReadUByte(fp);
     tile=(WORD) ReadUByte(fp);
-    while(n>0){
+    while(n>0 && i<MAX_SIZE){
       data[i++]=tile;
-      if((i+1)%23==0){
-        data[i++]=0;
-        data[i++]=0;
+      if(i<MAX_SIZE && (i+1)%23==0){
+        if(i < MAX_SIZE) data[i++]=0;
+        if(i < MAX_SIZE) data[i++]=0;
       }
       n--;
     }
@@ -390,9 +404,22 @@ void RunPitCode(WORD index,WORD x,WORD y,WORD onoff){
   WORD overtile;
   CodePtr *loopstack[32];
 
-  if(index==-1 || index==0xff) return;
+  printf("DEBUG: RunPitCode called - index=%d, x=%d, y=%d, onoff=%d\n", index, x, y, onoff);
+  fflush(stdout);
+
+  if(index==-1 || index==0xff) {
+    printf("DEBUG: RunPitCode returning early - invalid index\n");
+    fflush(stdout);
+    return;
+  }
   pos=pitcodedef[index].codeptr;
-  if(pos==NULLADDR) return;
+  if(pos==NULLADDR) {
+    printf("DEBUG: RunPitCode returning early - NULLADDR\n");
+    fflush(stdout);
+    return;
+  }
+  printf("DEBUG: RunPitCode proceeding with execution, pos=%p\n", pos);
+  fflush(stdout);
 
   stkptr=0;
   notdone=1;
@@ -402,8 +429,12 @@ void RunPitCode(WORD index,WORD x,WORD y,WORD onoff){
   while(notdone){
     cmd=(CodePtr) *pos;
     pos+=1;
+    printf("DEBUG: RunPitCode processing command: %d\n", cmd);
+    fflush(stdout);
     switch(cmd){
       case 0:
+        printf("DEBUG: Command 0 - ending execution\n");
+        fflush(stdout);
         notdone=0;
         break;
       case CMD_ENDIF:
@@ -753,9 +784,15 @@ void RunPitCode(WORD index,WORD x,WORD y,WORD onoff){
         }
         break;
       case CMD_PRINT:
+        printf("DEBUG: CMD_PRINT case entered\n");
+        fflush(stdout);
         a=((pos[0])<<8)+pos[1];
         pos+=2;
+        printf("DEBUG: About to call PrintText(pos=%p, a=%d, 0)\n", pos, a);
+        fflush(stdout);
         PrintText(pos,a,0);
+        printf("DEBUG: PrintText completed, advancing pos by %d\n", a);
+        fflush(stdout);
         pos+=a;
         break;
       case CMD_INPUT:
@@ -917,7 +954,7 @@ void PrintText(CodePtr *pos,WORD len,WORD input)
   }
 }
 
-void StoneText(WORD x,WORD y,CHAR *str,WORD n,WORD c)
+void StoneText(WORD x,WORD y,const CHAR *str,WORD n,WORD c)
 {
   SetColor(3);
   Txt(x-1,y,str,n);
@@ -929,7 +966,7 @@ void StoneText(WORD x,WORD y,CHAR *str,WORD n,WORD c)
   Txt(x,y,str,n);
 }
 
-void ShadowText(WORD x,WORD y,CHAR *str,WORD n,WORD c)
+void ShadowText(WORD x,WORD y,const CHAR *str,WORD n,WORD c)
 {
   SetColor(0);
   Txt(x+1,y+1,str,n);
@@ -1021,65 +1058,137 @@ WORD GameLoadLevel(void)
   static char key[]={'A'-5,'m'-10,'a'-15,'n'-20,'d'-25,'a'-30,0};
   WORD numpitcode,magic,i,keypos;
 
+  printf("DEBUG: GameLoadLevel starting\n");
+  printf("DEBUG: gamevars.level = '%s'\n", gamevars.level);
+  printf("DEBUG: LEVELPATH = '%s'\n", LEVELPATH);
+  fflush(stdout);
+
   if(key[0]!='A'){
     for(i=0;key[i]!=0;i++) key[i]+=(i+1)*5;
   }
   strcat(fname,gamevars.level);
-  strcat(fname,".pit");
-  if(!Exists(fname)) return 0;
+  // Only add .pit extension if it's not already there
+  if (strlen(gamevars.level) < 4 || strcmp(&gamevars.level[strlen(gamevars.level)-4], ".pit") != 0) {
+    strcat(fname,".pit");
+  }
+  printf("DEBUG: Trying to load level file: '%s'\n", fname);
+  fflush(stdout);
+  if(!Exists(fname)) {
+    printf("DEBUG: Level file does not exist: '%s'\n", fname);
+    fflush(stdout);
+    return 0;
+  }
+  printf("DEBUG: Level file exists, opening...\n");
+  fflush(stdout);
   fp=ReadFile(fname);
 
+  printf("DEBUG: Level file opened successfully\n");
+  fflush(stdout);
   magic=ReadWord(fp);  //Magic Number
+  printf("DEBUG: Magic number read: 0x%04X\n", magic);
+  fflush(stdout);
   if(magic!=0x0895){
+    printf("DEBUG: Invalid magic number, expected 0x0895\n");
+    fflush(stdout);
     CloseFile(fp);
     return 0;
   }
+  printf("DEBUG: Magic number valid, reading level data...\n");
+  fflush(stdout);
   ReadString(fp,gamevars.password);
+  printf("DEBUG: Password read\n");
+  fflush(stdout);
   ReadString(fp,gamevars.title);
+  printf("DEBUG: Title read\n");
+  fflush(stdout);
   ReadRun(fp,(WORD *) under);
+  printf("DEBUG: Under layer read\n");
+  fflush(stdout);
   ReadRun(fp,(WORD *) over);
+  printf("DEBUG: Over layer read\n");
+  fflush(stdout);
   numpitcode=ReadWord(fp);
+  printf("DEBUG: Number of pit codes: %d\n", numpitcode);
+  fflush(stdout);
   pcmaster=-1;
   pcintro=-1;
   pcredg=-1;
   pcgreeng=-1;
   pcblueg=-1;
   if(numpitcode){
+    printf("DEBUG: Reading pit code data...\n");
+    fflush(stdout);
     ReadRun(fp,(WORD *) pitcode);
+    printf("DEBUG: Pit code ReadRun completed, processing %d pit codes\n", numpitcode);
+    fflush(stdout);
     while(numpitcode){
+      printf("DEBUG: Reading pit code %d\n", numpitcode);
+      fflush(stdout);
       i=ReadWord(fp);
+      printf("DEBUG: Pit code index: %d\n", i);
+      fflush(stdout);
       ReadString(fp,pitcodedef[i].name);
+      printf("DEBUG: Pit code name: '%s'\n", pitcodedef[i].name);
+      fflush(stdout);
       if(strcasecmp(pitcodedef[i].name,"Intro")==0) pcintro=i;
       else if(strcasecmp(pitcodedef[i].name,"Master")==0) pcmaster=i;
       else if(strcasecmp(pitcodedef[i].name,"RedGem")==0) pcredg=i;
       else if(strcasecmp(pitcodedef[i].name,"GreenGem")==0) pcgreeng=i;
       else if(strcasecmp(pitcodedef[i].name,"BlueGem")==0) pcblueg=i;
+      printf("DEBUG: Reading pit code size and pointer\n");
+      fflush(stdout);
       pitcodedef[i].codesize=ReadWord(fp);
       pitcodedef[i].codeptr=ReadWord(fp)+code;
+      printf("DEBUG: Pit code size: %d, pointer offset: %p\n", pitcodedef[i].codesize, pitcodedef[i].codeptr);
+      fflush(stdout);
       if(pitcodedef[i].codesize==0){
         pitcodedef[i].codeptr=NULLADDR;
       }
       numpitcode--;
     }
+    printf("DEBUG: All pit codes processed, reading total code size\n");
+    fflush(stdout);
     totalcode=ReadWord(fp);
+    printf("DEBUG: Total code size: %d\n", totalcode);
+    fflush(stdout);
     ReadMem(fp,(char*)code,totalcode);
+    printf("DEBUG: Code memory read, decrypting...\n");
+    fflush(stdout);
     for(i=0,keypos=0;i<totalcode;i++){
       code[i]^=key[keypos++];
       if(key[keypos]==0) keypos=0;
     }
+    printf("DEBUG: Code decrypted, initializing registers\n");
+    fflush(stdout);
     for(i=0;i<10;i++){
       regs[i]=0;
     }
+    printf("DEBUG: Pit code processing completed\n");
+    fflush(stdout);
  }
 
   CloseFile(fp);
 
+  printf("DEBUG: Level file closed, setting up UI...\n");
+  fflush(stdout);
   FilledFrame(0,168,320,32,3,6,5);
+  printf("DEBUG: FilledFrame completed\n");
+  fflush(stdout);
   StoneText(5,179,gamevars.level,strlen(gamevars.level),0);
+  printf("DEBUG: Level name text drawn\n");
+  fflush(stdout);
   StoneText(5,193,gamevars.title,strlen(gamevars.title),0);
+  printf("DEBUG: Level title text drawn\n");
+  fflush(stdout);
   DrawSideBar();
+  printf("DEBUG: Sidebar drawn\n");
+  fflush(stdout);
   copysidebar=1;
+  printf("DEBUG: About to call ProcessLevel()\n");
+  fflush(stdout);
   ProcessLevel();
+  printf("DEBUG: ProcessLevel() completed\n");
+  fflush(stdout);
   return 1;
 }
 
@@ -2310,17 +2419,33 @@ void CheckLevelDone(void)
 
 void GameMainLoop(void)
 {
+  printf("DEBUG: GameMainLoop starting\n");
+  fflush(stdout);
   juststartedgame=1;
+  printf("DEBUG: Set juststartedgame=1\n");
+  fflush(stdout);
   gamevars.redgemon=0;
   gamevars.greengemon=0;
   gamevars.bluegemon=0;
   redgems=0; greengems=0; bluegems=0; yellowgems=0;
   redkeys=0; greenkeys=0; bluekeys=0;
+  printf("DEBUG: Variables initialized\n");
+  fflush(stdout);
+  printf("DEBUG: About to call CheckMouse() in GameMainLoop\n");
+  fflush(stdout);
   CheckMouse();
+  printf("DEBUG: CheckMouse() completed in GameMainLoop\n");
+  fflush(stdout);
+  printf("DEBUG: About to call SetupGame()\n");
+  fflush(stdout);
   SetupGame();
+  printf("DEBUG: SetupGame() completed\n");
+  fflush(stdout);
   levelrepeat=1;
   levelwon=0;
   firsttime=1;
+  printf("DEBUG: Entering main level repeat loop\n");
+  fflush(stdout);
   while(levelrepeat){
     regs[REG_REDGEMS-201]=redgems;
     regs[REG_GREENGEMS-201]=greengems;
@@ -2330,34 +2455,66 @@ void GameMainLoop(void)
     regs[REG_GREENKEYS-201]=greenkeys;
     regs[REG_BLUEKEYS-201]=bluekeys;
     levelnotdone=1;
+    printf("DEBUG: About to call GameLoadLevel() again\n");
+    fflush(stdout);
     if(GameLoadLevel()){
+      printf("DEBUG: GameLoadLevel() succeeded, processing level\n");
+      fflush(stdout);
       if(firsttime){
+        printf("DEBUG: First time, running intro pit code\n");
+        fflush(stdout);
         firsttime=0;
+        printf("DEBUG: About to call RunPitCode(pcintro=%d,0,0,1)\n", pcintro);
+        fflush(stdout);
         RunPitCode(pcintro,0,0,1);
+        printf("DEBUG: Intro pit code completed\n");
+        fflush(stdout);
         juststartedgame=0;
       }
+      printf("DEBUG: Running master pit code\n");
+      fflush(stdout);
       RunPitCode(pcmaster,0,0,1);
+      printf("DEBUG: Master pit code completed\n");
+      fflush(stdout);
       Gdrall();
+      printf("DEBUG: Gdrall() completed\n");
+      fflush(stdout);
       FadeIn();
+      printf("DEBUG: FadeIn() completed\n");
+      fflush(stdout);
       CheckUnderGuy();
+      printf("DEBUG: CheckUnderGuy() completed, entering level loop\n");
+      fflush(stdout);
       while(levelnotdone || levelwon){
+        printf("DEBUG: Level loop iteration, levelnotdone=%d, levelwon=%d\n", levelnotdone, levelwon);
+        fflush(stdout);
         CheckGuy();
+        printf("DEBUG: CheckGuy() completed\n");
+        fflush(stdout);
         if(!levelwon){
           Gdrall();
           ScreenSwap();
         }
         if(copysidebar){ScreenCopySidebar(); copysidebar=0;}
         CheckMouse();
+        printf("DEBUG: CheckMouse() completed\n");
+        fflush(stdout);
         CheckLevelDone();
+        printf("DEBUG: CheckLevelDone() completed\n");
+        fflush(stdout);
         while(inkey=='p'){  //Pause
           CheckMouse();
         }
         if(inkey=='q'){    //quit
+          printf("DEBUG: Quit requested\n");
+          fflush(stdout);
           levelnotdone=0;
           levelrepeat=0;
         }
         firsttime=1;  //kinda kludgy - sets intro for next level
         if(inkey=='r'){    //restart
+          printf("DEBUG: Restart requested\n");
+          fflush(stdout);
           gamevars.redgemon=0;
           gamevars.greengemon=0;
           gamevars.bluegemon=0;
@@ -2367,7 +2524,11 @@ void GameMainLoop(void)
         }
       }
     }else{
+      printf("DEBUG: GameLoadLevel() failed, setting levelrepeat=0\n");
+      fflush(stdout);
       levelrepeat=0;
     }
   }
+  printf("DEBUG: GameMainLoop() EXITING\n");
+  fflush(stdout);
 }

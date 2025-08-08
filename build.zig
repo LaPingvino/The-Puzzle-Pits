@@ -17,22 +17,27 @@ pub fn build(b: *std.Build) void {
         "LOAD.C",
         "SB.C",
         "SETMODE.C",
+        "minimal_dos_replacement.c",
     };
     
     // Common C flags
     const base_cflags = [_][]const u8{
+        "-x", "c",  // Force C compilation for .C files
         "-Wall",
         "-O2",
         "-I.",
         "-Wno-pointer-sign",
         "-fno-strict-aliasing", 
         "-Wno-format-zero-length",
-        "-std=gnu99",
-        "-x", "c", // Force treat .C files as C code
+        "-Wno-sign-conversion",
+        "-Wno-unknown-pragmas",
+        "-Wno-unused-variable",
+        "-Wno-unused-but-set-variable",
     };
     
     // Simplified C flags for debug test
     const debug_cflags = [_][]const u8{
+        "-x", "c",  // Force C compilation for .C files
         "-Wall",
         "-O0",
         "-g",
@@ -67,8 +72,14 @@ pub fn build(b: *std.Build) void {
     
     // Add common sources to both executables
     for (common_sources) |src| {
-        demo_exe.addCSourceFile(.{ .file = b.path(src), .flags = &base_cflags });
-        pits_exe.addCSourceFile(.{ .file = b.path(src), .flags = &base_cflags });
+        if (use_sdl) {
+            const sdl_flags = base_cflags ++ sdl_cflags;
+            demo_exe.addCSourceFile(.{ .file = b.path(src), .flags = &sdl_flags });
+            pits_exe.addCSourceFile(.{ .file = b.path(src), .flags = &sdl_flags });
+        } else {
+            demo_exe.addCSourceFile(.{ .file = b.path(src), .flags = &base_cflags });
+            pits_exe.addCSourceFile(.{ .file = b.path(src), .flags = &base_cflags });
+        }
     }
     
     // Add main source files
@@ -210,6 +221,31 @@ pub fn build(b: *std.Build) void {
     const test_fadein_step = b.step("test-fadein", "Run FadeIn-specific tests only");
     test_fadein_step.dependOn(&test_fadein.step);
     
+    // File-related test steps using the properly configured test executable
+    const test_file_run = b.addRunArtifact(test_exe);
+    test_file_run.addArg("--test-filter");
+    test_file_run.addArg("file case insensitive opening");
+    const test_file_step = b.step("test-file", "Run file case-insensitive opening tests only");
+    test_file_step.dependOn(&test_file_run.step);
+    
+    const test_extensions_run = b.addRunArtifact(test_exe);
+    test_extensions_run.addArg("--test-filter");
+    test_extensions_run.addArg("game file extensions case handling");
+    const test_extensions_step = b.step("test-extensions", "Run game file extension tests only");
+    test_extensions_step.dependOn(&test_extensions_run.step);
+    
+    const test_paths_run = b.addRunArtifact(test_exe);
+    test_paths_run.addArg("--test-filter");
+    test_paths_run.addArg("path component case handling");
+    const test_paths_step = b.step("test-paths", "Run path component tests only");
+    test_paths_step.dependOn(&test_paths_run.step);
+    
+    const test_all_file_run = b.addRunArtifact(test_exe);
+    test_all_file_run.addArg("--test-filter");
+    test_all_file_run.addArg("file");
+    const test_all_file_step = b.step("test-all-file", "Run all file-related tests only");
+    test_all_file_step.dependOn(&test_all_file_run.step);
+    
     // Create a step to download game data
     const download_data_step = b.step("download-data", "Download game data from archive.org");
     const download_cmd = b.addSystemCommand(&[_][]const u8{
@@ -248,9 +284,9 @@ pub fn build(b: *std.Build) void {
     const info_step = b.step("info", "Show build information");
     const info_cmd = b.addSystemCommand(&[_][]const u8{"echo"});
     if (use_sdl) {
-        info_cmd.addArg("Building with SDL2 support");
+        info_cmd.addArg("Building with SDL2 support\nNote: SDL2 builds require Nix environment or system SDL2 libraries");
     } else {
-        info_cmd.addArg("Building without SDL2 (stub mode)");
+        info_cmd.addArg("Building without SDL2 (stub mode)\nNote: Game will run but display no graphics or sound");
     }
     info_step.dependOn(&info_cmd.step);
     
@@ -268,13 +304,28 @@ pub fn build(b: *std.Build) void {
         "echo",
         "The Puzzle Pits Build System\n" ++
         "\n" ++
-        "Usage:\n" ++
-        "  zig build                    # Build with SDL2 support\n" ++
+        "IMPORTANT: For SDL2 builds, use the Nix environment!\n" ++
+        "\n" ++
+        "Recommended Usage (with Nix):\n" ++
+        "  nix develop  # Enter development shell with SDL2\n" ++
+        "  zig build    # Build with SDL2 support (default)\n" ++
+        "\n" ++
+        "OR use Nix build directly:\n" ++
+        "  nix build .#puzzle-pits-sdl  # Build SDL version\n" ++
+        "  nix build .#puzzle-pits      # Build stub version\n" ++
+        "\n" ++
+        "Local Usage (without Nix):\n" ++
+        "  zig build -Dsdl=false        # Build without SDL2 (stub mode only)\n" ++
+        "  zig build setup -Dsdl=false  # Download data and build (stub mode)\n" ++
+        "\n" ++
+        "Available Commands:\n" ++
+        "  zig build                    # Build with SDL2 (requires Nix env)\n" ++
         "  zig build -Dsdl=false        # Build without SDL2 (stub mode)\n" ++
         "  zig build setup              # Download data and build everything\n" ++
         "  zig build download-data      # Download game data from archive.org\n" ++
         "  zig build run-demo           # Run the demo\n" ++
         "  zig build run-pits           # Run the main game\n" ++
+        "  zig build debug-test         # Run comprehensive debug tests\n" ++
         "  zig build clean              # Clean build artifacts\n" ++
         "  zig build info               # Show build configuration\n" ++
         "\n" ++
@@ -287,13 +338,18 @@ pub fn build(b: *std.Build) void {
         "  zig build test-fadein        # Test FadeIn function components\n" ++
         "\n" ++
         "Requirements:\n" ++
-        "  - SDL2 development libraries (for SDL build)\n" ++
+        "  - Nix (recommended): handles all dependencies automatically\n" ++
+        "  - SDL2 development libraries (for manual SDL build)\n" ++
         "  - curl (for downloading game data)\n" ++
         "  - unzip (for extracting game data)\n" ++
         "\n" ++
-        "Install SDL2 on Ubuntu/Debian: sudo apt install libsdl2-dev\n" ++
-        "Install SDL2 on macOS: brew install sdl2\n" ++
-        "Install SDL2 on Arch: sudo pacman -S sdl2\n"
+        "Install SDL2 manually:\n" ++
+        "  Ubuntu/Debian: sudo apt install libsdl2-dev\n" ++
+        "  macOS: brew install sdl2\n" ++
+        "  Arch: sudo pacman -S sdl2\n" ++
+        "\n" ++
+        "Note: SDL2 builds outside Nix may fail due to library paths.\n" ++
+        "Use 'nix develop' for the best experience.\n"
     });
     usage_step.dependOn(&usage_cmd.step);
 }

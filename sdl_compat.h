@@ -6,6 +6,16 @@
 #include <string.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Type definitions for DOS compatibility
+#ifndef INT8
+#define INT8 signed char
+#endif
+
+
 // DOS compatibility macros
 #define MK_FP(seg, off) ((void*)((seg << 4) + off))
 #define farmalloc(size) malloc(size)
@@ -40,6 +50,7 @@ void setkb(void);
 void resetkb(void);
 int kbhit(void);
 int getch(void);
+int get_next_keypress(void);
 
 // Timer functions
 uint32_t get_ticks(void);
@@ -49,7 +60,7 @@ void delay(uint32_t ms);
 #ifndef SOUND_DEFINED
 #define SOUND_DEFINED
 typedef struct {
-    uint8_t *samples;
+    INT8 *samples;
     uint32_t length;
 } SOUND;
 #endif
@@ -115,5 +126,9 @@ static inline void _dos_setvect(int intno, interrupt_handler handler) {
 // Initialize SDL subsystems
 int init_sdl_compat(void);
 void cleanup_sdl_compat(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // SDL_COMPAT_H

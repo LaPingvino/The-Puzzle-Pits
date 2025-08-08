@@ -55,7 +55,7 @@ typedef struct
 
 
 
-int load_Wave(char *filename, SOUND *sound)
+int load_Wave(const char *filename, SOUND *sound)
 {
 	WAV      wav;
 	FILE    *fp = NULL;
