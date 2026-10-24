@@ -15,7 +15,7 @@ static uint8_t vga_palette[256][3];
 
 // Mouse state
 static int mouse_x = 160, mouse_y = 100;
-static int mouse_dx = 0, mouse_dy = 0;
+static int mouse_moved; // the system's pointer moved: the game's follows
 static uint8_t mouse_buttons = 0;
 
 // Keyboard state
@@ -41,8 +41,8 @@ static void sync_keytable(void) {
 }
 
 // External mouse and keyboard state from game code
-extern int button1, button2;
-extern int mx, my;
+extern int16_t button1, button2; // WORD: 16 bits, as the DOS compiler's int
+extern int16_t mx, my;
 extern char inkey;
 
 // farmalloc and farfree are macros for malloc and free (sdl_compat.h):
@@ -56,13 +56,15 @@ int init_sdl_compat(void) {
         return -1;
     }
 
-    // Create window (scale up 2x for modern displays)
+    // the 320x200 screen three times as big, in a window that can be
+    // resized (or made full screen with F11 or Alt+Enter)
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0"); // sharp pixels
     sdl_window = SDL_CreateWindow(
         "The Puzzle Pits",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        640, 400,  // 320x200 scaled 2x
-        SDL_WINDOW_SHOWN
+        960, 600,
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
     );
     
     if (!sdl_window) {
@@ -75,6 +77,9 @@ int init_sdl_compat(void) {
         fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
         return -1;
     }
+    // drawn at 320x200 whatever the window's size, and the mouse's
+    // position told in those pixels
+    SDL_RenderSetLogicalSize(sdl_renderer, 320, 200);
 
     // Create texture for VGA buffer
     sdl_texture = SDL_CreateTexture(
@@ -310,14 +315,20 @@ static void key_event(SDL_Keycode sym, int down, int repeat) {
 // scripted presses PITS_KEYS="ms:Key,ms:Key" for testing without a
 // keyboard: each key (an SDL key name) is pressed at its time and held
 // for 250 ms, as a finger would (the game looks at the keys held a few
-// times a second, and waits for them to be let go)
+// times a second, and waits for them to be let go); "@x;y" moves the mouse
+// to x, y (the game's pixels) and "Click" holds its left button.
 static void scripted_keys(void) {
     static const char *next;
     static int started;
     static SDL_Keycode held;
     static uint32_t release;
     if (held && SDL_GetTicks() >= release) {
-        key_event(held, 0, 0);
+        if (held == SDLK_UNKNOWN - 1) { // a click
+            mouse_buttons &= ~1;
+            button1 = 0;
+        } else {
+            key_event(held, 0, 0);
+        }
         held = 0;
     }
     if (held) {
@@ -339,9 +350,20 @@ static void scripted_keys(void) {
             return;
         }
         next += len + (next[len] == ',');
-        held = SDL_GetKeyFromName(name);
+        if (name[0] == '@') { // @x;y: the mouse to x, y
+            sscanf(name + 1, "%d;%d", &mouse_x, &mouse_y);
+            mouse_moved = 1;
+            continue;
+        }
+        if (strcmp(name, "Click") == 0) { // the left button, held as a key
+            mouse_buttons |= 1;
+            button1 = 1;
+            held = SDLK_UNKNOWN - 1;
+        } else {
+            held = SDL_GetKeyFromName(name);
+            key_event(held, 1, 0);
+        }
         release = SDL_GetTicks() + 250;
-        key_event(held, 1, 0);
         return;
     }
 }
@@ -350,6 +372,14 @@ static void process_sdl_events(void) {
     refresh();
     scripted_keys();
     while (SDL_PollEvent(&sdl_event)) {
+        SDL_Keycode sym = sdl_event.key.keysym.sym;
+        if (sdl_event.type == SDL_KEYDOWN && !sdl_event.key.repeat &&
+            (sym == SDLK_F11 || sym == SDLK_RETURN && (sdl_event.key.keysym.mod & KMOD_ALT))) {
+            // full screen, or a window again
+            int full = SDL_GetWindowFlags(sdl_window) & SDL_WINDOW_FULLSCREEN_DESKTOP;
+            SDL_SetWindowFullscreen(sdl_window, full ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
+            continue;
+        }
         if (sdl_event.type == SDL_KEYDOWN || sdl_event.type == SDL_KEYUP) {
             key_event(sdl_event.key.keysym.sym, sdl_event.type == SDL_KEYDOWN, sdl_event.key.repeat);
         } else if (sdl_event.type == SDL_MOUSEBUTTONDOWN) {
@@ -371,10 +401,9 @@ static void process_sdl_events(void) {
                 button2 = 0;
             }
         } else if (sdl_event.type == SDL_MOUSEMOTION) {
-            // Completely disable mouse movement to prevent array bounds crashes
-            // The game's mouse sprite system can't handle SDL's large movement values
-            mouse_dx = 0;
-            mouse_dy = 0;
+            mouse_x = sdl_event.motion.x; // in the game's pixels (logical size)
+            mouse_y = sdl_event.motion.y;
+            mouse_moved = 1;
         } else if (sdl_event.type == SDL_QUIT) {
             // Handle quit event - this is critical for window closing!
             shoot();
@@ -399,17 +428,15 @@ uint16_t readmbutton(void) {
     return mouse_buttons;
 }
 
+// relpos is how far the mouse moved since it was last asked: here, from
+// where the game's pointer is (mx, my) to the system's, so it follows it
 void relpos(int16_t *x, int16_t *y) {
-    // Process SDL events first to handle window closing and input
     process_sdl_events();
-    
-    // Return accumulated mouse movement
-    *x = mouse_dx;
-    *y = mouse_dy;
-    
-    // Reset movement counters
-    mouse_dx = 0;
-    mouse_dy = 0;
+    *x = *y = 0;
+    if (mouse_moved) { // not before: the game took that for a move
+        *x = mouse_x - mx;
+        *y = mouse_y - my;
+    }
 }
 
 // Keyboard functions

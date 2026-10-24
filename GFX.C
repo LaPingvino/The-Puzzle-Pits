@@ -398,18 +398,9 @@ void partialerasemouse(char *screen,WORD newmx,WORD newmy)
   sy=y1;
   dest+=y1*320+x1;
   newmouse=shapes[mouseimage+276]+2;   //skip width & height bytes
-  // Prevent negative array offsets that cause crashes
-  {
-    int dy = y1-newy1;
-    int dx = x1-newx1;
-    int offset = (dy<<4)+dx;
-    if(offset >= 0) {
-      newmouse+=offset;
-    } else {
-      // If offset would be negative, just use the base pointer
-      // This prevents crashes but mouse drawing may be slightly off
-    }
-  }
+  // where the old pointer's corner is in the new one's image (only read
+  // inside it): *16, not <<4, which is undefined for a negative offset
+  newmouse+=(y1-newy1)*16+(x1-newx1);
   while(sy<=y2){
     sx=x1;
     while(sx<=x2){
