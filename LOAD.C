@@ -20,6 +20,8 @@
 #include "OLDSOUND.H"
 #include "ENV.H"
 
+FILE *fopen_case_insensitive(char *fname, const char *mode); // FILE.C
+
 
 
 #define LENIDS  4
@@ -61,7 +63,7 @@ int load_Wave(const char *filename, SOUND *sound)
 	FILE    *fp = NULL;
 	DWORD  x;
 
-	if ((fp = fopen(filename, "rb")) == NULL)
+	if ((fp = fopen_case_insensitive((char *)filename, "rb")) == NULL) // CRACK.WAV for crack.wav
 	{
 		//printf("\nUnable to open file %s", filename);
 		goto ABORTLOAD;

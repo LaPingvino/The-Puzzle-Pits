@@ -464,3 +464,68 @@ uint32_t get_ticks(void) {
 void delay(uint32_t ms) {
     SDL_Delay(ms);
 }
+// Sound: the DiamondWare mixer of DIG.C, with SDL's audio in place of the
+// Sound Blaster and its interrupt: up to dig_NUMSOUNDS sounds at once,
+// signed 8-bit samples added onto the middle and clipped, at 11000 Hz.
+#define dig_NUMSOUNDS 16
+static SDL_AudioDeviceID audio;
+static INT8 *sndptr[dig_NUMSOUNDS];
+static uint32_t sndlen[dig_NUMSOUNDS];
+static int numsnds;
+
+static void mix(void *userdata, Uint8 *out, int len) {
+    (void)userdata;
+    for (int i = 0; i < len; i++) {
+        int sample = 0x80;
+        for (int s = 0; s < numsnds;) {
+            sample += *sndptr[s]++;
+            if (--sndlen[s] == 0) { // done: the later ones move up
+                numsnds--;
+                memmove(&sndptr[s], &sndptr[s + 1], (numsnds - s) * sizeof sndptr[0]);
+                memmove(&sndlen[s], &sndlen[s + 1], (numsnds - s) * sizeof sndlen[0]);
+                continue;
+            }
+            s++;
+        }
+        out[i] = sample < 0 ? 0 : sample > 0xff ? 0xff : sample;
+    }
+}
+
+INT8 dig_Init(env_BLASTER *blaster) {
+    (void)blaster;
+    SDL_AudioSpec want = {0}, have;
+    want.freq = 11000;
+    want.format = AUDIO_U8;
+    want.channels = 1;
+    want.samples = 256;
+    want.callback = mix;
+    audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+    if (!audio) {
+        return 0; // no sound, the game plays on
+    }
+    SDL_PauseAudioDevice(audio, 0);
+    return 1;
+}
+
+void dig_Play(SOUND *sound) {
+    if (!audio || sound->length == 0) {
+        return;
+    }
+    SDL_LockAudioDevice(audio);
+    if (numsnds == dig_NUMSOUNDS) { // full: the oldest goes
+        numsnds--;
+        memmove(&sndptr[0], &sndptr[1], numsnds * sizeof sndptr[0]);
+        memmove(&sndlen[0], &sndlen[1], numsnds * sizeof sndlen[0]);
+    }
+    sndptr[numsnds] = sound->samples;
+    sndlen[numsnds] = sound->length;
+    numsnds++;
+    SDL_UnlockAudioDevice(audio);
+}
+
+void dig_Kill(void) {
+    if (audio) {
+        SDL_CloseAudioDevice(audio);
+        audio = 0;
+    }
+}

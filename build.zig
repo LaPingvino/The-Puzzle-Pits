@@ -10,8 +10,7 @@ pub fn build(b: *std.Build) void {
     const use_sdl = b.option(bool, "sdl", "Build with SDL2 (default true)") orelse true;
 
     const sources = [_][]const u8{
-        "DIG.C",     "DMA.C",                     "ENV.C", "FILE.C", "GFX.C", "LOAD.C",
-        "SETMODE.C", "minimal_dos_replacement.c",
+        "DMA.C", "ENV.C", "FILE.C", "GFX.C", "LOAD.C", "SETMODE.C", "minimal_dos_replacement.c",
     };
     // the game was written for a 16-bit DOS compiler: char is unsigned
     // (WORD and LONG are sized in compat.h)
@@ -33,9 +32,11 @@ pub fn build(b: *std.Build) void {
         const mod = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true });
         mod.addCSourceFiles(.{ .files = &sources, .flags = flags, .language = .c }); // .C is C here
         mod.addCSourceFile(.{ .file = b.path(e[1]), .flags = flags, .language = .c });
-        if (use_sdl) {
+        if (use_sdl) { // sdl_compat.c plays the sounds DIG.C sent to a Sound Blaster
             mod.addCSourceFile(.{ .file = b.path("sdl_compat.c"), .flags = flags });
             mod.linkSystemLibrary("SDL2", .{});
+        } else {
+            mod.addCSourceFile(.{ .file = b.path("DIG.C"), .flags = flags, .language = .c });
         }
         const exe = b.addExecutable(.{ .name = e[0], .root_module = mod });
         b.installArtifact(exe);

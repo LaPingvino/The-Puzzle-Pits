@@ -8,7 +8,7 @@
 // Forward declaration (removed to avoid conflicts - include ENV.H where needed)
 
 #ifndef DWORD
-	#define DWORD unsigned long
+	#define DWORD uint32_t // the DOS compiler's long: 32 bits (WAV headers)
 #endif
 
 #ifndef INT8

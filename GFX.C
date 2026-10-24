@@ -1124,7 +1124,11 @@ void gfxInit(void)
   mouseavailable=0;
 #endif
   setkb();
+#ifdef USE_SDL
+  blasteravailable=1;  // SDL's audio stands in for the Sound Blaster
+#else
   blasteravailable=env_GetBlaster(&blaster);
+#endif
   if(blasteravailable){
     blasteravailable=dig_Init(&blaster);
     if(blasteravailable){
