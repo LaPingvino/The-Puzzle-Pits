@@ -43,7 +43,7 @@ void clearscreen(char *vscreen);
 // Mouse functions
 uint16_t initmouse(void);
 uint16_t readmbutton(void);
-void relpos(int *x, int *y);
+void relpos(int16_t *x, int16_t *y);
 
 // Keyboard functions
 void setkb(void);

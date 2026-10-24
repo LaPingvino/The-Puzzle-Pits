@@ -9,10 +9,10 @@
 
 typedef unsigned char BYTE;
 typedef unsigned char UBYTE;
-typedef int WORD;
-typedef unsigned int UWORD;
-typedef long LONG;
-typedef unsigned long ULONG;
+typedef int16_t WORD;   // int and long as the DOS compiler had them: 16 and 32 bits
+typedef uint16_t UWORD;
+typedef int32_t LONG;
+typedef uint32_t ULONG;
 typedef char CHAR;
 #ifndef INT8
 	#define INT8 signed char

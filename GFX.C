@@ -299,7 +299,7 @@ void Blit8(WORD bmap,WORD x,WORD y,WORD image)
   }
 }
 
-void LittleTile(int bmap, int x, int y, int image)
+void LittleTile(WORD bmap,WORD x,WORD y,WORD image)
 {
   Blit8(bmap, x, y, image);
 }

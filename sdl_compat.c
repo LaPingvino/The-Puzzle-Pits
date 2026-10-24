@@ -45,14 +45,9 @@ extern int button1, button2;
 extern int mx, my;
 extern char inkey;
 
-// DOS memory allocation compatibility functions
-void* farmalloc(size_t size) {
-    return malloc(size);
-}
-
-void farfree(void* ptr) {
-    free(ptr);
-}
+// farmalloc and farfree are macros for malloc and free (sdl_compat.h):
+// functions here would define malloc and free themselves, calling
+// themselves for ever
 
 // Initialize SDL subsystems
 int init_sdl_compat(void) {
@@ -154,30 +149,56 @@ void cls(char *screen) {
     memset(screen, 0, 320 * 200);
 }
 
-void screenswap(char *screen) {
-    // Convert indexed color to RGB
+// present shows video memory (physical) in the window, in the current
+// palette, as the VGA card did all the time; PITS_SHOT=file also writes
+// it to file as a PPM (for testing without a window)
+static void present(void) {
     uint8_t *pixels;
     int pitch;
-    
     SDL_LockTexture(sdl_texture, NULL, (void**)&pixels, &pitch);
-    
     for (int y = 0; y < 200; y++) {
         for (int x = 0; x < 320; x++) {
-            uint8_t color = screen[y * 320 + x];
-            int offset = y * pitch + x * 4;
-            pixels[offset + 0] = vga_palette[color][2];  // B
-            pixels[offset + 1] = vga_palette[color][1];  // G
-            pixels[offset + 2] = vga_palette[color][0];  // R
-            pixels[offset + 3] = 0xFF;                   // A
+            uint8_t *c = vga_palette[vga_memory_buffer[y * 320 + x]];
+            uint8_t *p = pixels + y * pitch + x * 4;
+            p[0] = c[2]; p[1] = c[1]; p[2] = c[0]; p[3] = 0xFF; // BGRA
         }
     }
-    
     SDL_UnlockTexture(sdl_texture);
-    
-    // Render to screen
     SDL_RenderClear(sdl_renderer);
     SDL_RenderCopy(sdl_renderer, sdl_texture, NULL, NULL);
     SDL_RenderPresent(sdl_renderer);
+
+    const char *shot = getenv("PITS_SHOT");
+    if (shot) {
+        FILE *f = fopen(shot, "wb");
+        if (f) {
+            fprintf(f, "P6 320 200 255\n");
+            for (int i = 0; i < 320 * 200; i++) {
+                fwrite(vga_palette[vga_memory_buffer[i]], 1, 3, f);
+            }
+            fclose(f);
+        }
+    }
+}
+
+// refresh shows video memory if a frame's time (1/60 s) has passed: the
+// game draws into it and changes the palette without saying when it is
+// done, and calls this through its timer and input checks while waiting
+static void refresh(void) {
+    static uint32_t last;
+    uint32_t now = SDL_GetTicks();
+    if (sdl_texture && now - last >= 16) {
+        last = now;
+        present();
+    }
+}
+
+// screenswap copies a page drawn off screen into video memory, and shows it
+void screenswap(char *screen) {
+    if ((uint8_t *)screen != vga_memory_buffer) {
+        memcpy(vga_memory_buffer, screen, 320 * 200);
+    }
+    present();
 }
 
 void setpalette(char *colorlist) {
@@ -257,49 +278,76 @@ static int sdl_to_inkey(SDL_Keycode key) {
 }
 
 // Process SDL events (called from CheckMouse and kbhit)
+// key_event is a key pressed or let go: the keyboard table the game reads
+// for moving (its DOS scan codes), and on a first press, the key for inkey
+static void key_event(SDL_Keycode sym, int down, int repeat) {
+    int scan = 0;
+    switch (sym) {
+        case SDLK_UP: scan = 72; break;
+        case SDLK_DOWN: scan = 80; break;
+        case SDLK_LEFT: scan = 75; break;
+        case SDLK_RIGHT: scan = 77; break;
+        case SDLK_RETURN: scan = 28; break;
+        case SDLK_SPACE: scan = 58; break; // the game's SPKEY
+        case SDLK_F1: scan = 59; break;
+        case SDLK_F4: scan = 62; break;
+        case SDLK_ESCAPE: scan = 1; break;
+        case SDLK_LSHIFT: scan = 42; break;
+        case SDLK_RSHIFT: scan = 54; break;
+    }
+    if (scan) {
+        debug_keytable[scan] = down ? scan : 0;
+    }
+    if (down && !repeat && pending_inkey == 0) {
+        pending_inkey = sdl_to_inkey(sym);
+    }
+    sync_keytable();
+}
+
+// scripted presses PITS_KEYS="ms:Key,ms:Key" for testing without a
+// keyboard: each key (an SDL key name) is pressed at its time and held
+// for 100 ms, as a finger would (the game waits for keys to be let go)
+static void scripted_keys(void) {
+    static const char *next;
+    static int started;
+    static SDL_Keycode held;
+    static uint32_t release;
+    if (held && SDL_GetTicks() >= release) {
+        key_event(held, 0, 0);
+        held = 0;
+    }
+    if (held) {
+        return;
+    }
+    if (!started) {
+        started = 1;
+        next = getenv("PITS_KEYS");
+    }
+    while (next && *next) {
+        char name[32];
+        unsigned at;
+        int len = 0;
+        if (sscanf(next, "%u:%31[^,]%n", &at, name, &len) < 2) {
+            next = NULL;
+            return;
+        }
+        if (SDL_GetTicks() < at) {
+            return;
+        }
+        next += len + (next[len] == ',');
+        held = SDL_GetKeyFromName(name);
+        release = SDL_GetTicks() + 100;
+        key_event(held, 1, 0);
+        return;
+    }
+}
+
 static void process_sdl_events(void) {
+    refresh();
+    scripted_keys();
     while (SDL_PollEvent(&sdl_event)) {
-        if (sdl_event.type == SDL_KEYDOWN) {
-            // Handle movement keys directly for keytable (always, even on repeat)
-            switch (sdl_event.key.keysym.sym) {
-                case SDLK_UP: debug_keytable[72] = 72; break;
-                case SDLK_DOWN: debug_keytable[80] = 80; break;
-                case SDLK_LEFT: debug_keytable[75] = 75; break;
-                case SDLK_RIGHT: debug_keytable[77] = 77; break;
-                case SDLK_RETURN: debug_keytable[28] = 28; break;
-                case SDLK_SPACE: debug_keytable[58] = 58; break;  // Fixed: SPKEY = 58, not 57
-                case SDLK_F1: debug_keytable[59] = 59; break;
-                case SDLK_F4: debug_keytable[62] = 62; break;
-                case SDLK_ESCAPE: debug_keytable[1] = 1; break;
-                case SDLK_LSHIFT: debug_keytable[42] = 42; break;
-                case SDLK_RSHIFT: debug_keytable[54] = 54; break;
-            }
-            
-            // Handle single keypresses for inkey (only on first press)
-            if (!sdl_event.key.repeat && pending_inkey == 0) {
-                pending_inkey = sdl_to_inkey(sdl_event.key.keysym.sym);
-            }
-            
-            // Sync debug keytable to real keytable
-            sync_keytable();
-        } else if (sdl_event.type == SDL_KEYUP) {
-            // Clear movement keys
-            switch (sdl_event.key.keysym.sym) {
-                case SDLK_UP: debug_keytable[72] = 0; break;
-                case SDLK_DOWN: debug_keytable[80] = 0; break;
-                case SDLK_LEFT: debug_keytable[75] = 0; break;
-                case SDLK_RIGHT: debug_keytable[77] = 0; break;
-                case SDLK_RETURN: debug_keytable[28] = 0; break;
-                case SDLK_SPACE: debug_keytable[58] = 0; break;  // Fixed: SPKEY = 58, not 57
-                case SDLK_F1: debug_keytable[59] = 0; break;
-                case SDLK_F4: debug_keytable[62] = 0; break;
-                case SDLK_ESCAPE: debug_keytable[1] = 0; break;
-                case SDLK_LSHIFT: debug_keytable[42] = 0; break;
-                case SDLK_RSHIFT: debug_keytable[54] = 0; break;
-            }
-            
-            // Sync debug keytable to real keytable
-            sync_keytable();
+        if (sdl_event.type == SDL_KEYDOWN || sdl_event.type == SDL_KEYUP) {
+            key_event(sdl_event.key.keysym.sym, sdl_event.type == SDL_KEYDOWN, sdl_event.key.repeat);
         } else if (sdl_event.type == SDL_MOUSEBUTTONDOWN) {
             if (sdl_event.button.button == SDL_BUTTON_LEFT) {
                 mouse_buttons |= 1;
@@ -349,7 +397,7 @@ uint16_t readmbutton(void) {
     return mouse_buttons;
 }
 
-void relpos(int *x, int *y) {
+void relpos(int16_t *x, int16_t *y) {
     // Process SDL events first to handle window closing and input
     process_sdl_events();
     
@@ -411,6 +459,7 @@ int get_next_keypress(void) {
 
 // Timer functions
 uint32_t get_ticks(void) {
+    process_sdl_events(); // the game polls the timer while it waits
     // Return ticks at 18.2 Hz like DOS timer
     return (SDL_GetTicks() * 182) / 10000;
 }

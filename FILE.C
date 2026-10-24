@@ -84,7 +84,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
       printf("DEBUG: Success with all lowercase\n");
       fflush(stdout);
     }
-    strcpy(fname, temp_fname); // Update fname with the working version
     return file;
   }
   
@@ -105,7 +104,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
       printf("DEBUG: Success with all uppercase\n");
       fflush(stdout);
     }
-    strcpy(fname, temp_fname); // Update fname with the working version
     return file;
   }
   
@@ -135,7 +133,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
     }
     file = fopen(temp_fname, mode);
     if (file != NULL) {
-      strcpy(fname, temp_fname);
       return file;
     }
     
@@ -151,7 +148,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
     }
     file = fopen(temp_fname, mode);
     if (file != NULL) {
-      strcpy(fname, temp_fname);
       return file;
     }
     
@@ -169,7 +165,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
     }
     file = fopen(temp_fname, mode);
     if (file != NULL) {
-      strcpy(fname, temp_fname);
       return file;
     }
     
@@ -205,7 +200,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
       
       file = fopen(temp_fname, mode);
       if (file != NULL) {
-        strcpy(fname, temp_fname);
         return file;
       }
       
@@ -238,7 +232,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
       
       file = fopen(temp_fname, mode);
       if (file != NULL) {
-        strcpy(fname, temp_fname);
         return file;
       }
     }
@@ -256,7 +249,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
     }
     file = fopen(temp_fname, mode);
     if (file != NULL) {
-      strcpy(fname, temp_fname);
       return file;
     }
     
@@ -287,7 +279,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
       
       file = fopen(temp_fname, mode);
       if (file != NULL) {
-        strcpy(fname, temp_fname);
         return file;
       }
       
@@ -315,7 +306,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
       
       file = fopen(temp_fname, mode);
       if (file != NULL) {
-        strcpy(fname, temp_fname);
         return file;
       }
     }

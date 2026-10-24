@@ -102,7 +102,7 @@ static inline uint16_t readmbutton(void) {
     return 0;  // No buttons pressed
 }
 
-static inline void relpos(int *x, int *y) {
+static inline void relpos(int16_t *x, int16_t *y) {
     *x = 0;
     *y = 0;
 }
