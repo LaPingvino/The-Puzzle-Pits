@@ -150,8 +150,7 @@ void cls(char *screen) {
 }
 
 // present shows video memory (physical) in the window, in the current
-// palette, as the VGA card did all the time; PITS_SHOT=file also writes
-// it to file as a PPM (for testing without a window)
+// palette, as the VGA card did all the time
 static void present(void) {
     uint8_t *pixels;
     int pitch;
@@ -167,9 +166,13 @@ static void present(void) {
     SDL_RenderClear(sdl_renderer);
     SDL_RenderCopy(sdl_renderer, sdl_texture, NULL, NULL);
     SDL_RenderPresent(sdl_renderer);
+}
 
+// shoot writes the screen to PITS_SHOT, if set, as a PPM: once, as the
+// game ends (each frame took time enough to miss keys)
+static void shoot(void) {
     const char *shot = getenv("PITS_SHOT");
-    if (shot) {
+    if (shot && vga_memory_buffer) {
         FILE *f = fopen(shot, "wb");
         if (f) {
             fprintf(f, "P6 320 200 255\n");
@@ -306,7 +309,8 @@ static void key_event(SDL_Keycode sym, int down, int repeat) {
 
 // scripted presses PITS_KEYS="ms:Key,ms:Key" for testing without a
 // keyboard: each key (an SDL key name) is pressed at its time and held
-// for 100 ms, as a finger would (the game waits for keys to be let go)
+// for 250 ms, as a finger would (the game looks at the keys held a few
+// times a second, and waits for them to be let go)
 static void scripted_keys(void) {
     static const char *next;
     static int started;
@@ -336,7 +340,7 @@ static void scripted_keys(void) {
         }
         next += len + (next[len] == ',');
         held = SDL_GetKeyFromName(name);
-        release = SDL_GetTicks() + 100;
+        release = SDL_GetTicks() + 250;
         key_event(held, 1, 0);
         return;
     }
@@ -373,6 +377,7 @@ static void process_sdl_events(void) {
             mouse_dy = 0;
         } else if (sdl_event.type == SDL_QUIT) {
             // Handle quit event - this is critical for window closing!
+            shoot();
             cleanup_sdl_compat();
             exit(0);
         }
