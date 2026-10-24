@@ -373,7 +373,6 @@ static void process_sdl_events(void) {
             mouse_dy = 0;
         } else if (sdl_event.type == SDL_QUIT) {
             // Handle quit event - this is critical for window closing!
-            printf("Window close requested - exiting cleanly\n");
             cleanup_sdl_compat();
             exit(0);
         }
@@ -387,8 +386,6 @@ uint16_t readmbutton(void) {
     // Check for access to unmapped keys
     for (int i = 0; i < 256; i++) {
         if (keytable[i] != 0 && debug_keytable[i] == 0 && !keytable_access_logged[i]) {
-            printf("DEBUG: Game accessing unmapped keytable[%d] = %d\n", i, keytable[i]);
-            fflush(stdout);
             keytable_access_logged[i] = 1;
         }
     }

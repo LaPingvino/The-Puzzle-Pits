@@ -707,8 +707,6 @@ void CheckKeyboard(void)
     int key = get_next_keypress();
     if (key > 0) {
       inkey = key;
-      printf("DEBUG: SDL keypress: %d (char: '%c')\n", inkey, (inkey >= 32 && inkey <= 126) ? inkey : '?');
-      fflush(stdout);
     }
   }
 }
@@ -1021,16 +1019,10 @@ void LoadShapes(const char *filename,WORD pos)
   unsigned char *datpos;
   FILE *fp;
 
-  printf("DEBUG: LoadShapes starting, reading tiles1.dat\n");
-  fflush(stdout);
   fp=ReadFile("tiles1.dat");
-  printf("DEBUG: tiles1.dat opened, reading data\n");
-  fflush(stdout);
   ReadMem(fp,shapedata1,FileSize(fp));
   CloseFile(fp);
 
-  printf("DEBUG: tiles1.dat processed, parsing shapes\n");
-  fflush(stdout);
   datpos=(unsigned char *)shapedata1;
   do{
     shapes[pos++]=(char *)datpos;
@@ -1040,16 +1032,10 @@ void LoadShapes(const char *filename,WORD pos)
   }while(width!=0);
   pos--;
 
-  printf("DEBUG: tiles1.dat shapes parsed, reading tiles2.dat\n");
-  fflush(stdout);
   fp=ReadFile("tiles2.dat");
-  printf("DEBUG: tiles2.dat opened, reading data\n");
-  fflush(stdout);
   ReadMem(fp,shapedata2,FileSize(fp));
   CloseFile(fp);
 
-  printf("DEBUG: tiles2.dat processed, parsing shapes\n");
-  fflush(stdout);
   datpos=(unsigned char *)shapedata2;
   do{
     shapes[pos++]=(char *)datpos;
@@ -1059,16 +1045,10 @@ void LoadShapes(const char *filename,WORD pos)
   }while(width!=0);
   pos--;
 
-  printf("DEBUG: tiles2.dat shapes parsed, reading tiles3.dat\n");
-  fflush(stdout);
   fp=ReadFile("tiles3.dat");
-  printf("DEBUG: tiles3.dat opened, reading data\n");
-  fflush(stdout);
   ReadMem(fp,shapedata3,FileSize(fp));
   CloseFile(fp);
 
-  printf("DEBUG: tiles3.dat processed, parsing shapes\n");
-  fflush(stdout);
   datpos=(unsigned char *)shapedata3;
   do{
     shapes[pos++]=(char *)datpos;
@@ -1090,16 +1070,10 @@ void LoadShapes(const char *filename,WORD pos)
     //}
   }while(width!=0);
 
-  printf("DEBUG: tiles3.dat shapes parsed, reading plasma1.fnt\n");
-  fflush(stdout);
   fp=ReadFile("plasma1.fnt");
-  printf("DEBUG: plasma1.fnt opened, reading data\n");
-  fflush(stdout);
   ReadMem(fp,fontdata,FileSize(fp));
   CloseFile(fp);
 
-  printf("DEBUG: plasma1.fnt processed, parsing font\n");
-  fflush(stdout);
   pos=32;
   datpos=(unsigned char *)fontdata;
   i=32;  // Initialize font character index
@@ -1111,8 +1085,6 @@ void LoadShapes(const char *filename,WORD pos)
     i++;  // Move to next character
   }while(width!=0);
   
-  printf("DEBUG: LoadShapes completed successfully\n");
-  fflush(stdout);
 }
 
 void PlaySound(int n)
@@ -1150,7 +1122,6 @@ void gfxInit(void)
   copymousebg(physical);
 #else
   mouseavailable=0;
-  printf("DEBUG: Mouse support disabled (MOUSE_ENABLED=0)\n");
 #endif
   setkb();
   blasteravailable=env_GetBlaster(&blaster);

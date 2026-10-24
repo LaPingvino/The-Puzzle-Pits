@@ -36,30 +36,22 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
   int i, len;
   
   if (debug_file_open) {
-    printf("DEBUG: fopen_case_insensitive trying to open '%s' in mode '%s'\n", fname, mode);
-    fflush(stdout);
   }
   
   // Ensure we don't overflow the buffer
   len = strlen(fname);
   if (len >= 255) {
     if (debug_file_open) {
-      printf("DEBUG: Filename too long, aborting\n");
-      fflush(stdout);
     }
     return NULL;
   }
   
   // First try the filename as-is
   if (debug_file_open) {
-    printf("DEBUG: Trying original filename: '%s'\n", fname);
-    fflush(stdout);
   }
   file = fopen(fname, mode);
   if (file != NULL) {
     if (debug_file_open) {
-      printf("DEBUG: Success with original filename\n");
-      fflush(stdout);
     }
     return file;
   }
@@ -75,14 +67,10 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
     }
   }
   if (debug_file_open) {
-    printf("DEBUG: Trying all lowercase: '%s'\n", temp_fname);
-    fflush(stdout);
   }
   file = fopen(temp_fname, mode);
   if (file != NULL) {
     if (debug_file_open) {
-      printf("DEBUG: Success with all lowercase\n");
-      fflush(stdout);
     }
     return file;
   }
@@ -95,14 +83,10 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
     }
   }
   if (debug_file_open) {
-    printf("DEBUG: Trying all uppercase: '%s'\n", temp_fname);
-    fflush(stdout);
   }
   file = fopen(temp_fname, mode);
   if (file != NULL) {
     if (debug_file_open) {
-      printf("DEBUG: Success with all uppercase\n");
-      fflush(stdout);
     }
     return file;
   }
@@ -313,8 +297,6 @@ FILE *fopen_case_insensitive(char *fname, const char *mode)
   
   // If none of the variants work, return NULL
   if (debug_file_open) {
-    printf("DEBUG: All filename variations failed for '%s'\n", fname);
-    fflush(stdout);
   }
   return NULL;
 }

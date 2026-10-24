@@ -1,4 +1,4 @@
-# Proprietary game data (downloaded automatically by Nix flake)
+# The game's data is in PITS95 (freely distributable, see its readme)
 compiled-version/
 
 # Build artifacts
