@@ -323,48 +323,39 @@ void Plot(WORD x,WORD y,BYTE c,char *vscreen)
 #include <dirent.h>
 
 void GetLevelName(char *lname,WORD firsttime)
-{ /* returns each successive *.pit file in the levels\ directory */
+{ /* returns each successive *.pit file in the levels\ directory, without
+     its extension (findfirst and findnext on DOS; LEVELS on a disk that
+     tells the case apart) */
   static DIR *dir = NULL;
-  static struct dirent *entry;
+  struct dirent *entry;
   char *ext;
   WORD i;
 
   if(firsttime==0){
     if(dir) closedir(dir);
     dir = opendir("levels");
-    if(!dir){
-      lname[0]=0;
-      return;
-    }
+    if(!dir) dir = opendir("LEVELS");
   }
-  
-  if(!dir){
-    lname[0]=0;
-    return;
-  }
-  
-  /* Find next .pit file */
-  while((entry = readdir(dir)) != NULL){
+  lname[0]=0;
+  while(dir && (entry = readdir(dir)) != NULL){
     ext = strrchr(entry->d_name, '.');
     if(ext && strcasecmp(ext, ".pit") == 0){
       strcpy(lname, entry->d_name);
-      return;
+      break;
     }
   }
-  
-  /* No more files */
-  lname[0]=0;
-  closedir(dir);
-  dir = NULL;
   if(lname[0]!=0){
     for(i=0;lname[i]!='.' && lname[i]!=0;i++);
     lname[i]=0;
+  }else if(dir){
+    closedir(dir);
+    dir = NULL;
   }
 }
 
 ULONG Timer(void)
 {
-  return (ULONG) get_ticks();
+  return ((ULONG) get_ticks()*33)/10;  /* the BIOS's 18.2 ticks a second, as Abe counted them */
 }
 
 void WasteTime(void)
@@ -657,7 +648,7 @@ void bgcopyup(int n)
   if(n==0) return;
   n=16-n;
   dest=mousebg+(n<<4);
-  src=(unsigned char *)physical+(my-moffy)*320+(mx-moffx);
+  src=(unsigned char *)physical+((my-moffy)+n)*320+(mx-moffx);  /* +n as Abe had it (it went missing) */
   for(y=n;y<16;y++){
     for(x=0;x<16;x++){
       *dest=*src;

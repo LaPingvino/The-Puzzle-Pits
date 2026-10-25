@@ -61,6 +61,24 @@ pub fn build(b: *std.Build) void {
     run.setCwd(b.path("PITS95"));
     b.step("run", "Play The Puzzle Pits").dependOn(&run.step);
 
+    // zig build web: the game for a browser (zig-out/web/index.html), with
+    // Emscripten's emcc and its SDL2; Asyncify lets the game's own loops
+    // give the page its turn
+    const web = b.addSystemCommand(&.{ "emcc", "-O2", "-sUSE_SDL=2", "-sASYNCIFY", "-sALLOW_MEMORY_GROWTH", "-sEXIT_RUNTIME" });
+    web.addArgs(&base);
+    web.addArgs(&.{ "-DUSE_SDL", "-DSDL_MAIN_HANDLED", "-x", "c" });
+    for (sources) |src| web.addFileArg(b.path(src));
+    web.addFileArg(b.path("PITS.C"));
+    web.addArgs(&.{ "-x", "none" });
+    web.addFileArg(b.path("sdl_compat.c"));
+    web.addArgs(&.{ "--preload-file", "PITS95@/", "--shell-file" });
+    web.addFileArg(b.path("web/shell.html"));
+    web.addArg("-o");
+    const page = web.addOutputFileArg("index.html");
+    web.setCwd(b.path("."));
+    const install_web = b.addInstallDirectory(.{ .source_dir = page.dirname(), .install_dir = .prefix, .install_subdir = "web" });
+    b.step("web", "The game for a browser, in zig-out/web").dependOn(&install_web.step);
+
     const download = b.addSystemCommand(&.{ "sh", "-c", "curl -L -o pits95.zip https://archive.org/download/puzzle-pits/pits95.zip && unzip -o pits95.zip" });
     b.step("download-data", "Download the game's data from archive.org").dependOn(&download.step);
 }

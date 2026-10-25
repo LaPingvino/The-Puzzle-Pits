@@ -1,5 +1,8 @@
 #include "compat.h"
 #include <stdio.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #ifdef _WIN32
 #include <direct.h>
 #define chdir _chdir
@@ -210,6 +213,10 @@ static void present(void) {
     SDL_RenderClear(sdl_renderer);
     SDL_RenderCopy(sdl_renderer, sdl_texture, NULL, NULL);
     SDL_RenderPresent(sdl_renderer);
+    { static int n; const char *d = getenv("PITS_FRAMES"); Uint32 t = SDL_GetTicks();
+      if (d && t > 15900 && t < 19500) { char f[256]; snprintf(f, sizeof f, "%s/%05d.ppm", d, n++);
+        FILE *o = fopen(f, "wb"); fprintf(o, "P6 320 200 255\n");
+        for (int i = 0; i < 64000; i++) fwrite(vga_palette[vga_memory_buffer[i]], 1, 3, o); fclose(o); } }
 }
 
 // shoot writes the screen to PITS_SHOT, if set, as a PPM: once, as the
@@ -237,6 +244,11 @@ static void refresh(void) {
     if (sdl_texture && now - last >= 16) {
         last = now;
         present();
+#ifdef __EMSCRIPTEN__
+        // in a browser, the page draws and hears the keys only when the
+        // game lets go: once a frame (Asyncify keeps the game's loops)
+        emscripten_sleep(0);
+#endif
     }
 }
 
