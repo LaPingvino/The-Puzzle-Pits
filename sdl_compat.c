@@ -213,10 +213,6 @@ static void present(void) {
     SDL_RenderClear(sdl_renderer);
     SDL_RenderCopy(sdl_renderer, sdl_texture, NULL, NULL);
     SDL_RenderPresent(sdl_renderer);
-    { static int n; const char *d = getenv("PITS_FRAMES"); Uint32 t = SDL_GetTicks();
-      if (d && t > 15900 && t < 19500) { char f[256]; snprintf(f, sizeof f, "%s/%05d.ppm", d, n++);
-        FILE *o = fopen(f, "wb"); fprintf(o, "P6 320 200 255\n");
-        for (int i = 0; i < 64000; i++) fwrite(vga_palette[vga_memory_buffer[i]], 1, 3, o); fclose(o); } }
 }
 
 // shoot writes the screen to PITS_SHOT, if set, as a PPM: once, as the

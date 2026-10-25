@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Puzzle Pits</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #ccc; font: 14px sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  canvas { width: min(100vw, 160vh); aspect-ratio: 8 / 5; image-rendering: pixelated; outline: none; }
+  p { margin: .6em 1em; text-align: center; }
+  a { color: #8cf; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+<p id="status">Loading The Puzzle Pits…</p>
+<p>Arrow keys or the mouse to move, Enter to go on; the sound starts with your first key or click.
+  Abe Pralle's 1995 DOS game, <a href="https://github.com/LaPingvino/The-Puzzle-Pits">on GitHub</a>.</p>
+<script>
+  var canvas = document.getElementById("canvas");
+  var Module = {
+    canvas: canvas,
+    setStatus: function (s) { document.getElementById("status").textContent = s || ""; },
+    onRuntimeInitialized: function () { canvas.focus(); },
+  };
+  canvas.addEventListener("click", function () { canvas.focus(); });
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
