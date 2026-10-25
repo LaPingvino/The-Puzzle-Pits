@@ -26,7 +26,21 @@ These are what each level's answer is made of, and what has to work in R'n'D. R'
 | **Gems' powers** (used by the player, one a gem): red lays an arrow on each square left, blue pulls what's behind, green walks through anything and swaps it back | 5, 7, 11, 13, 18, 21, 23, 30, 35, 38, 40 | the hard part, below |
 | The yellow gem shows the whole pit | | not needed (R'n'D shows it) |
 
-Everything but the gems' powers is within what custom elements do. Their powers have no counterpart in R'n'D: a CE can change the squares the player leaves, one way for each side, which could make the red gem's arrows, but there is no pulling and no walking through walls. Whether a level needs a gem depends on its answer: some are a help, some the way through. Those eleven levels are the ones to check by playing.
+Everything but the gems' powers is within what custom elements do. None of R'n'D's games (its own, Supaplex, Emerald Mine, Diamond Caves, Boulder Dash, Mirror Magic) has the same powers, but custom elements come close, using what those games have: items the player collects and drops (Supaplex's red disks), changes that know which side the player came from or left by, elements that move towards the player, and a CE that turns into the player (how R'n'D's teleporters are made).
+
+| Gem | In Pits | In R'n'D |
+|---|---|---|
+| Red | the square the player next leaves becomes an arrow, pointing the way they went | the gem dropped where the player stands, a CE that turns into the arrow for the side the player leaves by: as in Pits |
+| Blue | the object behind the player follows them one square | the gem dropped: the boxes next to the player become ones that move a square towards the player, then are boxes again; close, but every box next to the player follows, not only the one behind |
+| Green | the player goes through walls and objects, and where they land an object swaps back to where they started | the gem dropped: walls and boxes become ones the player walks over, for some moves; landing on a box can't swap it |
+
+Whether a level needs a gem depends on its answer: some are a help, some the way through. Those eleven levels are the ones to check by playing.
+
+### Or in R'n'D itself
+
+R'n'D's other games are separate engines (`src/game_sp`, `game_em`, `game_bd`, `game_mm`), each playing its own levels by its own rules; everything else, Sokoban and custom elements with it, is the R'n'D engine (`src/game.c`). A level says which engine plays it (`game_engine_type`). Custom elements are data, not code: 256 of them and 32 groups, each with properties (pushable, walkable over, can move), a way of moving, and up to 32 change pages (on an event, from a side: become another element, change the 3 by 3 around, or do an action such as "exit player" or "show envelope").
+
+So the smallest change to R'n'D for what's missing would be two actions for change pages, beside "move player": **pull** (the element on the other side of the player follows them) and **pass through** (the player walks through walls for some moves). That is a change to R'n'D's level format and editor, for its author to take or not; the custom elements above don't need it.
 
 ## Level by level
 
