@@ -7,34 +7,68 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: #ccc; font: 14px sans-serif; }
   body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #game { display: flex; align-items: center; justify-content: center; background: #000; }
+  #game:fullscreen { width: 100vw; height: 100vh; }
   canvas { image-rendering: pixelated; outline: none; }
-  p { margin: .6em 1em; text-align: center; }
+  #bar { margin: .6em 1em; text-align: center; }
+  #bar p { margin: .3em 0; }
+  button { font: inherit; margin: 0 .3em; padding: .3em .9em; background: #333; color: #eee; border: 1px solid #666; border-radius: 4px; cursor: pointer; }
+  button:hover { background: #444; }
   a { color: #8cf; }
 </style>
 </head>
 <body>
-<canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
-<p id="status">Loading The Puzzle Pits…</p>
-<p>Arrow keys or the mouse to move, Enter to go on; the sound starts with your first key or click.
-  Abe Pralle's 1995 DOS game, <a href="https://github.com/LaPingvino/The-Puzzle-Pits">on GitHub</a>.</p>
+<div id="game"><canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas></div>
+<div id="bar">
+  <p id="status">Loading The Puzzle Pits…</p>
+  <p><button id="full" title="Alt+Enter">Full screen</button><button id="again" hidden>Play again</button></p>
+  <p>Arrow keys or the mouse to move, Enter to go on; the sound starts with your first key or click.
+    Abe Pralle's 1995 DOS game, <a href="https://github.com/LaPingvino/The-Puzzle-Pits">on GitHub</a>.</p>
+</div>
 <script>
   var canvas = document.getElementById("canvas");
+  var game = document.getElementById("game");
   var Module = {
     canvas: canvas,
     setStatus: function (s) { document.getElementById("status").textContent = s || ""; },
     onRuntimeInitialized: function () { canvas.focus(); },
+    // Quit: out of full screen, and a way to play again (the game has
+    // ended; a fresh one is the page again)
+    onExit: function () {
+      if (document.fullscreenElement) document.exitFullscreen();
+      document.getElementById("status").textContent = "Thanks for playing The Puzzle Pits.";
+      document.getElementById("full").hidden = true;
+      document.getElementById("again").hidden = false;
+      document.getElementById("again").focus();
+    },
   };
   canvas.addEventListener("click", function () { canvas.focus(); });
+  document.getElementById("again").addEventListener("click", function () { location.reload(); });
+  function toggleFull() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (game.requestFullscreen) game.requestFullscreen().then(function () { canvas.focus(); });
+  }
+  document.getElementById("full").addEventListener("click", toggleFull);
+  // Alt+Enter, as on the desktop (before the game takes it for Enter)
+  addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && e.altKey) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      toggleFull();
+    }
+  }, true);
   // the 320x200 screen at the biggest whole multiple that fits, so every
   // pixel is as wide as the next (a fraction made the letters uneven)
   function fit() {
-    var room = innerHeight - document.querySelectorAll("p")[1].offsetHeight - 24;
+    var full = document.fullscreenElement === game;
+    var room = full ? innerHeight : innerHeight - document.getElementById("bar").offsetHeight - 16;
     var k = Math.max(1, Math.floor(Math.min(innerWidth / 320, room / 200)));
     if (innerWidth < 320) k = innerWidth / 320; // a narrow phone: smaller
     canvas.style.width = 320 * k + "px";
     canvas.style.height = 200 * k + "px";
   }
   addEventListener("resize", fit);
+  document.addEventListener("fullscreenchange", fit);
   fit();
 </script>
 {{{ SCRIPT }}}

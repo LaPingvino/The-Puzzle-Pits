@@ -435,6 +435,7 @@ static void process_sdl_events(void) {
     }
     while (SDL_PollEvent(&sdl_event)) {
         SDL_Keycode sym = sdl_event.key.keysym.sym;
+#ifndef __EMSCRIPTEN__ // in a browser, its own F11 and the page's button (shell.html)
         if (sdl_event.type == SDL_KEYDOWN && !sdl_event.key.repeat &&
             (sym == SDLK_F11 || sym == SDLK_RETURN && (sdl_event.key.keysym.mod & KMOD_ALT))) {
             // full screen, or a window again
@@ -442,6 +443,7 @@ static void process_sdl_events(void) {
             SDL_SetWindowFullscreen(sdl_window, full ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
             continue;
         }
+#endif
         if (sdl_event.type == SDL_KEYDOWN || sdl_event.type == SDL_KEYUP) {
             key_event(sdl_event.key.keysym.sym, sdl_event.type == SDL_KEYDOWN, sdl_event.key.repeat);
         } else if (sdl_event.type == SDL_MOUSEBUTTONDOWN) {
