@@ -1,5 +1,6 @@
 #include "compat.h"
 #include <stdio.h>
+#include <dirent.h>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
@@ -656,10 +657,17 @@ static int level_number(const char *name) {
     return n;
 }
 
+static char pack_id[64]; // the pack played, "" for Abe's (pack_use)
+
+// progress_file: progress.txt for Abe's pack, progress-ID.txt for others
 static void progress_file(char *path, size_t n) {
     const char *test = getenv("PITS_PROGRESS");
     char *pref = test ? NULL : SDL_GetPrefPath("PlasmaWorks", "PuzzlePits");
-    snprintf(path, n, "%s%s", test ? test : pref ? pref : "", test ? "" : "progress.txt");
+    if (test) {
+        snprintf(path, n, "%s%s%s", test, pack_id[0] ? "-" : "", pack_id);
+    } else {
+        snprintf(path, n, "%sprogress%s%s.txt", pref ? pref : "", pack_id[0] ? "-" : "", pack_id);
+    }
     SDL_free(pref);
 }
 
@@ -747,4 +755,98 @@ int play_level(const char *path) {
     }
     return 1;
 #endif
+}
+
+// Level packs, as Rocks'n'Diamonds has them: Abe's forty in LEVELS, and
+// any folder of LEVEL01.PIT, LEVEL02.PIT ... in PACKS beside the game's
+// data or in packs in the user's data folder, named in its pack.txt
+// (name=...) or by the folder. The game reads the levels of the pack in
+// use from levelpath (TILEDEFS.H LEVELPATH).
+char levelpath[1024] = "levels/";
+
+#define MAXPACKS 32
+static struct { char name[48]; char path[1024]; char id[64]; } packs[MAXPACKS];
+static int npacks = -1;
+
+static int has_levels(const char *dir) {
+    char f[1100];
+    const char *names[] = {"LEVEL01.PIT", "level01.pit", "Level01.pit", "LEVEL01.pit"};
+    for (int i = 0; i < 4; i++) {
+        snprintf(f, sizeof f, "%s/%s", dir, names[i]);
+        FILE *fp = fopen(f, "rb");
+        if (fp) {
+            fclose(fp);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void add_packs(const char *root) {
+#ifndef __EMSCRIPTEN__
+    DIR *d = opendir(root);
+    if (!d) {
+        return;
+    }
+    struct dirent *e;
+    while ((e = readdir(d)) && npacks < MAXPACKS) {
+        if (e->d_name[0] == '.') {
+            continue;
+        }
+        char dir[1024];
+        snprintf(dir, sizeof dir, "%s/%s", root, e->d_name);
+        if (!has_levels(dir)) {
+            continue;
+        }
+        int k = npacks++;
+        snprintf(packs[k].path, sizeof packs[k].path, "%s/", dir);
+        snprintf(packs[k].name, sizeof packs[k].name, "%s", e->d_name);
+        snprintf(packs[k].id, sizeof packs[k].id, "%s", e->d_name);
+        char info[1100], line[256];
+        snprintf(info, sizeof info, "%s/pack.txt", dir);
+        FILE *f = fopen(info, "r");
+        while (f && fgets(line, sizeof line, f)) {
+            if (strncmp(line, "name=", 5) == 0) {
+                line[strcspn(line, "\r\n")] = 0;
+                snprintf(packs[k].name, sizeof packs[k].name, "%s", line + 5);
+            }
+        }
+        if (f) {
+            fclose(f);
+        }
+    }
+    closedir(d);
+#else
+    (void)root;
+#endif
+}
+
+// packs_count finds the packs (once) and says how many there are
+int packs_count(void) {
+    if (npacks < 0) {
+        npacks = 1;
+        snprintf(packs[0].name, sizeof packs[0].name, "The Puzzle Pits");
+        snprintf(packs[0].path, sizeof packs[0].path, "levels/");
+        packs[0].id[0] = 0;
+        add_packs("PACKS"); // beside the game's data (one name: Windows ignores case)
+        char *pref = SDL_GetPrefPath("PlasmaWorks", "PuzzlePits");
+        if (pref) {
+            char dir[1024];
+            snprintf(dir, sizeof dir, "%spacks", pref);
+            add_packs(dir);
+            SDL_free(pref);
+        }
+    }
+    return npacks;
+}
+
+const char *pack_name(int i) { return i >= 0 && i < packs_count() ? packs[i].name : ""; }
+
+// pack_use plays pack i from now on: its levels, its progress
+void pack_use(int i) {
+    if (i < 0 || i >= packs_count()) {
+        return;
+    }
+    snprintf(levelpath, sizeof levelpath, "%s", packs[i].path);
+    snprintf(pack_id, sizeof pack_id, "%s", packs[i].id);
 }

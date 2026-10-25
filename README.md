@@ -20,6 +20,10 @@ The game remembers the furthest level you reached: **Resume** on the title scree
 
 The level editor is online at **https://lapingvino.github.io/The-Puzzle-Pits/editor/**, and each release has it as one HTML file to use offline (`puzzle-pits-editor.html`). It opens Abe's levels or any `.PIT` file, paints the ground and the objects, and edits the levels' scripts as text. It saves `.PIT` files that both this game and the original DOS `PITS.EXE` read: put one in the `LEVELS` folder as `LEVELnn.PIT`. **Play** tries the level in the web game, and on the desktop `puzzle-pits mylevel.pit` plays a level file straight away.
 
+### Level packs
+
+As in Rocks'n'Diamonds, levels come in packs. Abe's forty are the first; any other is a folder of `LEVEL01.PIT`, `LEVEL02.PIT` and so on, with an optional `pack.txt` holding `name=` and `author=` lines. The game looks for them in a `PACKS` folder beside its data, and in `packs` in its user data folder (`~/.local/share/PlasmaWorks/PuzzlePits/packs` on Linux). When there are more packs than Abe's, the title screen's first line picks one with Left and Right, and each pack remembers its own progress. Packs aren't in the web version yet.
+
 The level format and the script language are described in [docs/PIT-FORMAT.md](docs/PIT-FORMAT.md); `node tools/pit_test.mjs` checks that every one of Abe's levels reads and writes back byte for byte. `node tools/build-editor.mjs editor.html` builds the editor.
 
 ## Build

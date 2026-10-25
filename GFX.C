@@ -333,8 +333,11 @@ void GetLevelName(char *lname,WORD firsttime)
 
   if(firsttime==0){
     if(dir) closedir(dir);
-    dir = opendir("levels");
-    if(!dir) dir = opendir("LEVELS");
+    char path[1024];  /* the level pack's folder, without its / */
+    strcpy(path,LEVELPATH);
+    if(path[0]) path[strlen(path)-1]=0;
+    dir = opendir(path);
+    if(!dir && strcmp(path,"levels")==0) dir = opendir("LEVELS");
   }
   lname[0]=0;
   while(dir && (entry = readdir(dir)) != NULL){

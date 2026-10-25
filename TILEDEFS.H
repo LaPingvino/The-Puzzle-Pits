@@ -16,7 +16,8 @@
 typedef unsigned char CodePtr;
 
 #define NULLADDR (CodePtr *) NULL
-#define LEVELPATH "levels/"
+#define LEVELPATH levelpath  /* the level pack's folder, with a / (sdl_compat.c) */
+extern char levelpath[];
 
 #define strnicmp strncasecmp
 /* strcpy is standard, no need to redefine */

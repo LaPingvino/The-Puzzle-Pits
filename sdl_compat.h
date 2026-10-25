@@ -57,6 +57,9 @@ int progress_get(char *level);
 #define PLAYLEVEL "Play00" /* the name a level given to play has (play_level) */
 extern const char *play_path;
 int play_level(const char *path);
+int packs_count(void);
+const char *pack_name(int i);
+void pack_use(int i);
 void progress_reached(const char *level);
 
 // Keyboard functions

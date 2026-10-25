@@ -76,11 +76,12 @@ int main(int argc, char **argv)
 {
   WORD choice,menuitem,oldmenuitem,notdone,x;
   FILE *fp;
-  char fname[40],password[40];
+  char fname[1100],password[40];
   char saved[16],line[40];
   extern char *logical;
-  static unsigned char menubg[48][192];
-  WORD reached,chosen=0,entries[5],n,top,y;
+  static unsigned char menubg[56][192];
+  WORD reached,chosen=0,entries[6],n,top,y;
+  static WORD pack=0;
   char firstlvl[]={'L'-6,'e'-8,'v'-10,'e'-12,'l'-14,'0'-16,'1'-18,0};
 
   WORD playing=play_level(argc>1 ? argv[1] : NULL);  /* before the game goes to its data's folder */
@@ -126,17 +127,12 @@ int main(int argc, char **argv)
     ChangeMouse(BLANKPOINTER);
     LoadScreen(1);
     SetPalette(3);
-    /* the menu: Resume and Choose Level once a level has been reached,
-       above Abe's three, from where his starts down (the copyright is
-       below at 193); the title picture behind it all is kept, to draw
-       the lines again on it */
-    reached=progress_get(saved);
-    if(chosen<1 || chosen>reached) chosen=reached;
-    n=0;
-    if(reached){ entries[n++]=3; entries[n++]=4; }
-    entries[n++]=0; entries[n++]=1; entries[n++]=2;
+    /* the menu: the level pack (when there are more), Resume and Choose
+       Level (once a level has been reached), then Abe's three, from where
+       his start down (the copyright is below at 193); the title picture
+       behind it all is kept, to draw the lines again on it */
     top=148;
-    for(y=0;y<8*n+2;y++) memcpy(menubg[y],logical+(top-8+y)*320+128,192);
+    for(y=0;y<8*6+2;y++) memcpy(menubg[y],logical+(top-8+y)*320+128,192);
     FadeIn();
     CheckMouse();
     inkey=0xff;
@@ -144,10 +140,17 @@ int main(int argc, char **argv)
     choice=-1;
     notdone=1;
     while(notdone){
+      reached=progress_get(saved);
+      if(chosen<1 || chosen>reached) chosen=reached;
+      n=0;
+      if(packs_count()>1) entries[n++]=5;
+      if(reached){ entries[n++]=3; entries[n++]=4; }
+      entries[n++]=0; entries[n++]=1; entries[n++]=2;
+      if(menuitem>n-1) menuitem=n-1;
       OwnBlit();
       Blit(LOGIC,128,148,TITLETEXTBG);
       DisownBlit();
-      for(y=0;y<8*n+2;y++) memcpy(logical+(top-8+y)*320+128,menubg[y],192);
+      for(y=0;y<8*6+2;y++) memcpy(logical+(top-8+y)*320+128,menubg[y],192);
       for(x=0;x<n;x++){
         switch(entries[x]){
           case 0: strcpy(line,"Enter Level Password"); break;
@@ -155,6 +158,7 @@ int main(int argc, char **argv)
           case 2: strcpy(line,"Quit"); break;
           case 3: sprintf(line,"Resume %s",saved); break;
           case 4: sprintf(line,"Choose Level  < %02d >",chosen); break;
+          case 5: sprintf(line,"< %.20s >",pack_name(pack)); break;
         }
         ShadowText(141,top+8*x,line,strlen(line),menuitem==x?16:1);
       }
@@ -175,12 +179,18 @@ int main(int argc, char **argv)
             menuitem++;
             if(menuitem>n-1) menuitem=0;
             break;
-          case 30:  /* right, left: the level to choose */
+          case 30:  /* right, left: the level to choose, or the pack */
           case 31:
             if(entries[menuitem]==4){
               chosen+=inkey==30?1:-1;
               if(chosen<1) chosen=reached;
               if(chosen>reached) chosen=1;
+              oldmenuitem=-1;
+            }
+            if(entries[menuitem]==5){
+              pack=(pack+(inkey==30?1:packs_count()-1))%packs_count();
+              pack_use(pack);
+              chosen=0;
               oldmenuitem=-1;
             }
             inkey=0xff;
@@ -190,6 +200,8 @@ int main(int argc, char **argv)
           case 'q':  choice=2; oldmenuitem=-1; break;
         }
       }
+      if(choice==5) choice=-1;  /* Enter on the pack: nothing to start */
+      if(choice<0) notdone=1;
     }
     inkey=0xff;
     switch(choice){
@@ -200,7 +212,7 @@ int main(int argc, char **argv)
           OwnBlit();
           Blit(LOGIC,128,148,TITLETEXTBG);
           DisownBlit();
-          for(y=0;y<8*n+2;y++) memcpy(logical+(top-8+y)*320+128,menubg[y],192);  /* the whole menu's place */
+          for(y=0;y<8*6+2;y++) memcpy(logical+(top-8+y)*320+128,menubg[y],192);  /* the whole menu's place */
           ShadowText(141,148,"Enter Level Password",20,16);
           ShadowText(141,164,password,x,1);
           ShadowText(141+TxtLength(password,x),164,"_",1,16);
@@ -1046,7 +1058,7 @@ void DrawSideBar(void)
 WORD GameLoadLevel(void)
 {
   FILE *fp;
-  char fname[40]=LEVELPATH;
+  char fname[1100];  /* the pack's folder (LEVELPATH) can be long */
   /* file.c:  char cryptkey[]={'M'-4,'i'-8,'n'-12,'d'-16,'y'-20,0}; */
   static char key[]={'A'-5,'m'-10,'a'-15,'n'-20,'d'-25,'a'-30,0};
   WORD numpitcode,magic,i,keypos;
@@ -1055,6 +1067,7 @@ WORD GameLoadLevel(void)
   if(key[0]!='A'){
     for(i=0;key[i]!=0;i++) key[i]+=(i+1)*5;
   }
+  strcpy(fname,LEVELPATH);
   strcat(fname,gamevars.level);
   // Only add .pit extension if it's not already there
   if (strlen(gamevars.level) < 4 || strcmp(&gamevars.level[strlen(gamevars.level)-4], ".pit") != 0) {

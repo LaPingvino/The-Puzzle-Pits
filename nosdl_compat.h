@@ -114,6 +114,9 @@ static inline int progress_get(char *level) { level[0] = 0; return 0; }
 #define PLAYLEVEL "Play00"
 static const char *play_path = 0;
 static inline int play_level(const char *path) { (void)path; return 0; }
+static inline int packs_count(void) { return 1; }
+static inline const char *pack_name(int i) { (void)i; return "The Puzzle Pits"; }
+static inline void pack_use(int i) { (void)i; }
 static inline void progress_reached(const char *level) { (void)level; }
 static inline void relpos(int16_t *x, int16_t *y) {
     *x = 0;

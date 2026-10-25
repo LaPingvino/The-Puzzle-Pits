@@ -887,13 +887,14 @@ void DrawSideBar(void)
 WORD GameLoadLevel(void)
 {
   FILE *fp;
-  char fname[40]=LEVELPATH;
+  char fname[1100];  /* the pack's folder (LEVELPATH) can be long */
   static char key[]={'A'-5,'m'-10,'a'-15,'n'-20,'d'-25,'a'-30,0};
   WORD numpitcode,magic,i,keypos;
 
   if(key[0]!='A'){
     for(i=0;key[i]!=0;i++) key[i]+=(i+1)*5;
   }
+  strcpy(fname,LEVELPATH);
   strcat(fname,gamevars.level);
   strcat(fname,".pit");
   if(!Exists(fname)) return 0;

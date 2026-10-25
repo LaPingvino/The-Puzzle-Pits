@@ -233,3 +233,4 @@ void minimal_dos_exit_handler(void) {
 static void __attribute__((constructor)) setup_exit_handler(void) {
     atexit(minimal_dos_exit_handler);
 }
+char levelpath[1024] = "levels/";  /* the level pack's folder (TILEDEFS.H LEVELPATH) */
