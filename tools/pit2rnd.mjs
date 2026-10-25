@@ -102,16 +102,18 @@ const rows = [];
 const add = (name, frames) => { rows.push({ name, frames }); return rows.length - 1; };
 add("empty_space", [ground(FLOOR)]);
 add("steelwall", [wall()]);
-add("sokoban_object", [object(29, FLOOR)]);
+// the void (Sokoban's _, around and in the pits): black, over the ground
+add("invisible_steelwall", [(() => { const t = tile(); for (let i = 3; i < t.length; i += 4) t[i] = 255; return t; })()]);
+add("sokoban_object", [object(29)]); // see-through: R'n'D draws the ground under what moves
 add("sokoban_field_empty", [ground(56)]);
 add("sokoban_field_full", [object(33, 56)]);
 const dirs = { up: 0, right: 4, down: 8, left: 12 };
 for (const [dir, facing] of Object.entries(dirs)) {
-	add(`player_1.${dir}`, [object(100 + facing, FLOOR)]);
-	add(`player_1.moving.${dir}`, [0, 16, 0, 32].map((f) => object(100 + facing + f, FLOOR)));
-	add(`player_1.pushing.${dir}`, [0, 16].map((f) => object(196 + facing + f, FLOOR)));
+	add(`player_1.${dir}`, [object(100 + facing)]);
+	add(`player_1.moving.${dir}`, [0, 16, 0, 32].map((f) => object(100 + facing + f)));
+	add(`player_1.pushing.${dir}`, [0, 16].map((f) => object(196 + facing + f)));
 }
-add("player_1", [object(100 + 8, FLOOR)]);
+add("player_1", [object(100 + 8)]);
 add("sokoban_field_player", [object(100 + 8, 56)]);
 
 const width = T * Math.max(...rows.map((r) => r.frames.length)), height = T * rows.length;
@@ -135,31 +137,74 @@ function png(w, h, rgba) {
 	return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", head), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
 }
 
+// ---- Rocks'n'Diamonds' own level files (src/files.c SaveLevelFromFilename):
+// chunks VERS, DATE, NAME, AUTH, INFO (typed values) and BODY (16 bits a
+// square)
+
+const ELEMENT = { " ": 0, "#": 13, "$": 67, ".": 68, "*": 69, "@": 80, "+": 63, "_": 62 }; // EL_ numbers (src/main.h)
+
+// VIEW is how many squares the playfield shows (graphicsinfo.conf): a
+// smaller level is padded with the void to fill it, as R'n'D draws what is
+// beyond a level's edge as floor
+const VIEW = 11;
+
+function rndLevel(title, author, lines) {
+	const lw = Math.max(...lines.map((r) => r.length));
+	const w = Math.max(lw, VIEW), h = Math.max(lines.length, VIEW);
+	const left = (w - lw) >> 1, top = (h - lines.length) >> 1;
+	const rows = Array.from({ length: h }, (_, y) => {
+		const r = lines[y - top] ?? "";
+		return ("_".repeat(left) + r).padEnd(w, "_").replace(/ /g, (m, i) => (i < left ? "_" : m));
+	});
+	const chunks = [];
+	const chunk = (id, bytes) => { const head = Buffer.alloc(8); head.write(id, 0, "latin1"); head.writeUInt32BE(bytes.length, 4); chunks.push(head, Buffer.from(bytes)); };
+	const fixed = (s, n) => { const b = Buffer.alloc(n); b.write(s.slice(0, n), "latin1"); return b; };
+	chunk("VERS", [3, 0, 0, 0, 4, 4, 2, 4]); // file version 3.0, game 4.4.2.4
+	const d = new Date();
+	chunk("DATE", [d.getFullYear() >> 8, d.getFullYear() & 255, d.getMonth() + 1, d.getDate()]);
+	chunk("NAME", fixed(title, 32));
+	chunk("AUTH", fixed(author, 32));
+	// a type byte (its top bits: 0x00 one byte, 0x40 two) and the value
+	chunk("INFO", [0x01, 1, 0x41, w >> 8, w & 255, 0x42, h >> 8, h & 255, 0x43, 0, 0, 0x44, 0, 0, 0x09, 1]); // RND engine, size, no time limit, no gems, auto-exit Sokoban
+	const body = Buffer.alloc(w * h * 2);
+	rows.forEach((r, y) => { for (let x = 0; x < w; x++) body.writeUInt16BE(ELEMENT[r[x] ?? "_"] ?? 62, (y * w + x) * 2); });
+	chunk("BODY", body);
+	// the player's step is R'n'D's normal one: a square in 8 frames, about
+	// Pits' pace (a step of a whole square would repeat every frame a key is
+	// held, far faster than Pits)
+	return Buffer.concat([Buffer.from("RND1\0\0\0\0CAVE", "latin1"), ...chunks]);
+}
+
 // ---- the level set
 
 const files = fs.readdirSync(levelsDir).filter((n) => /level\d+\.pit$/i.test(n)).sort();
 let xsb = "; The Puzzle Pits, by Abe Pralle (Plasma Works), 1995: its levels as Sokoban\n\n";
-const report = [];
+const report = [], native = [];
 files.forEach((name, i) => {
 	const level = readPit(new Uint8Array(fs.readFileSync(path.join(levelsDir, name))));
 	const { rows: r, lost } = toXsb(level);
 	xsb += `; ${i + 1}\n'${level.title}'\n${r.join("\n")}\n\n`;
+	native.push(rndLevel(level.title, "Abe Pralle", r));
 	report.push(`${String(i + 1).padStart(2)} ${level.title.padEnd(26)} ${lost.length ? lost.join(", ") : "as in Pits"}`);
 });
 
 fs.mkdirSync(path.join(out, "graphics"), { recursive: true });
-fs.writeFileSync(path.join(out, "levels.xsb"), xsb);
+native.forEach((b, i) => fs.writeFileSync(path.join(out, `${String(i + 1).padStart(3, "0")}.level`), b));
+fs.writeFileSync(path.join(out, "levels.xsb"), xsb); // the same levels as Sokoban text, for other Sokoban games
 fs.writeFileSync(path.join(out, "levelinfo.conf"), `file_identifier:                ROCKSNDIAMONDS_LEVELINFO_FILE_VERSION_3.0
 
 name:                           The Puzzle Pits
 author:                         Abe Pralle
 levels:                         ${files.length}
 first_level:                    1
-filename:                       levels.xsb
-filetype:                       SB
 `);
 fs.writeFileSync(path.join(out, "graphics", "pits.png"), png(width, height, sheet));
-let conf = "game.tile_size:                 48\n\n";
+// the ground drawn under everything, standing or moving (the pictures of
+// what moves are see-through around it)
+// and a playfield of whole squares (11 of 48 inside its 2-pixel border),
+// in the middle of where the standard one is
+let conf = "game.tile_size:                 48\ngame.use_masked_elements:       true\n" +
+	"viewport.playfield.x:           14\nviewport.playfield.y:           14\nviewport.playfield.width:       532\nviewport.playfield.height:      532\n\n";
 rows.forEach((r, j) => {
 	conf += `${r.name}:${" ".repeat(Math.max(1, 32 - r.name.length))}pits.png\n${r.name}.xpos:${" ".repeat(Math.max(1, 27 - r.name.length))}0\n${r.name}.ypos:${" ".repeat(Math.max(1, 27 - r.name.length))}${j}\n${r.name}.frames:${" ".repeat(Math.max(1, 25 - r.name.length))}${r.frames.length}\n${r.name}.tile_size:${" ".repeat(Math.max(1, 22 - r.name.length))}${T}\n`;
 	if (r.frames.length > 1) conf += `${r.name}.delay:${" ".repeat(Math.max(1, 26 - r.name.length))}4\n`;
