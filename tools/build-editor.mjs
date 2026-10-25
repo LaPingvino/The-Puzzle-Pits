@@ -26,5 +26,6 @@ const data = {
 const page = read("editor/index.html").toString()
 	.replace("/*DATA*/", () => "const PITS_DATA = " + JSON.stringify(data) + ";")
 	.replace("/*CODE*/", () => code);
+fs.mkdirSync(new URL(".", new URL(out, "file://" + process.cwd() + "/")), { recursive: true });
 fs.writeFileSync(out, page);
 console.log(`${out}: ${(page.length / 1024).toFixed(0)} KB`);
