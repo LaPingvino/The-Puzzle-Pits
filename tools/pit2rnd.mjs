@@ -1,183 +1,16 @@
 // node tools/pit2rnd.mjs [LEVELS-folder] [out-folder]: The Puzzle Pits'
-// levels as a Rocks'n'Diamonds level set, with the game's own pictures.
-//
-// Pits is Sokoban with more to it, so the levels become Rocks'n'Diamonds'
-// Sokoban levels (one .xsb file): walls, barrels, crates and chests as
-// boxes, goals where the level is won (docs/RND-PORT.md), and the player. What
-// Sokoban has no place for is approximated, and reported for each level:
-// water, lava, holes and the void become walls (the player can't go there
-// in Pits either, but objects could be pushed in), and keys, locks,
-// arrows, gems and the scripts' plates and switches become floor. The
-// stories, in the scripts, are left out.
+// levels as a Rocks'n'Diamonds level set, with the game's own pictures
+// (tools/rnd.mjs does the work; the level editor exports the same way).
 import fs from "node:fs";
 import zlib from "node:zlib";
 import path from "node:path";
-import { readPit, disassemble, SIZE } from "./pit.mjs";
-import { readShapes, blit } from "./tiles.mjs";
+import { readPit } from "./pit.mjs";
+import { readShapes } from "./tiles.mjs";
+import { rndConvert, rndXsb, rndLevelFile, rndLevelinfo, rndArtwork } from "./rnd.mjs";
 
 const root = new URL("../", import.meta.url).pathname;
 const [levelsDir = path.join(root, "PITS95/LEVELS"), out = "the_puzzle_pits"] = process.argv.slice(2);
 const data = path.join(root, "PITS95");
-
-// ---- the levels
-
-const WALLS = new Set([1, 5, 9, 13, 17, 21, 25]); // walls, pillar, switches, barrels stuck in water or a hole
-const BOXES = new Set([29, 37, 45]); // barrel, crate, chest
-const FULL = new Set([33, 41, 49]); // each on its target
-const GOALS = new Set([54, 55, 56]);
-const BLOCKED = new Set([0, 83, 84, 88, 92, 96]); // void, hole, water, lava (and cooling)
-const PLAYER = 100;
-const KINDS = { 29: "barrel", 33: "barrel", 37: "crate", 41: "crate", 45: "chest", 49: "chest" };
-
-// ground with no part in a Sokoban level, shown as it is: R'n'D's
-// decorative empty spaces (EL_EMPTY_SPACE_1 is 1217, src/conf_emp.h)
-const DECOR = { 57: { char: "m", n: 1 }, 58: { char: "p", n: 2 }, 82: { char: "g", n: 3 }, 54: { char: "r", n: 4 }, 55: { char: "e", n: 5 }, 56: { char: "b", n: 6 } };
-
-// where the level is won: Master scripts that win when boxes stand on
-// given squares (IF EQ OVER(x, y) box ... WIN, nothing else) name them;
-// the coloured targets are often elsewhere then, only a hint
-function winSpots(level) {
-	const master = level.scripts.find((s) => s.name === "Master" && s.size);
-	if (!master) return null;
-	const stack = [];
-	for (const line of disassemble(level.code, master.offset).lines) {
-		const indent = line.search(/\S/), text = line.trim();
-		while (stack.length && stack.at(-1).indent >= indent) stack.pop();
-		if (text === "WIN") {
-			const conds = stack.filter((e) => e.text !== "SWITCHON");
-			const spots = conds.map((e) => /^IF EQ OVER\((\d+), (\d+)\) (29|33|37|41|45|49)$/.exec(e.text));
-			if (conds.length && spots.every(Boolean)) return new Set(spots.map((m) => `${m[1]},${m[2]}`));
-			return null;
-		}
-		stack.push({ indent, text });
-	}
-	return null;
-}
-
-function toXsb(level) {
-	const lost = new Set();
-	const spots = winSpots(level);
-	if (!spots && level.scripts.some((s) => s.size && disassemble(level.code, s.offset).lines.some((l) => l.trim() === "WIN"))) lost.add("how it's won (its scripts)");
-	const grid = [];
-	for (let y = 1; y < SIZE - 1; y++) {
-		let row = "";
-		for (let x = 1; x < SIZE - 1; x++) {
-			let o = level.over[x][y], u = level.under[x][y];
-			if (o > 0 && o < PLAYER) o -= (o - 1) % 4; // the first of its four
-			const goal = spots ? spots.has(`${x},${y}`) : GOALS.has(u);
-			let c;
-			if (o === PLAYER) c = goal ? "+" : "@";
-			else if (FULL.has(o)) c = !spots || goal ? "*" : "$";
-			else if (BOXES.has(o)) c = goal ? "*" : "$";
-			else if (WALLS.has(o)) c = "#";
-			else if (u === 0) c = "_";
-			else if (BLOCKED.has(u)) { c = "#"; lost.add({ 83: "holes", 84: "water", 88: "lava", 92: "lava", 96: "lava" }[u]); }
-			else c = goal ? "." : DECOR[u === 59 ? 58 : u]?.char ?? " ";
-			if (spots && GOALS.has(u) && c === " ") c = DECOR[u].char;
-			if (o === 21 || o === 25) lost.add("barrels in water or holes");
-			if (u >= 60 && u <= 63) lost.add("arrows");
-			if (u >= 64 && u <= 67) lost.add("gems");
-			if (u >= 68 && u <= 70 || u >= 76 && u <= 78) lost.add("keys and locks");
-			if (u === 58 || u === 59 || o === 13 || o === 17 || o === 5) lost.add("plates, switches and signs");
-			if (u === 71) lost.add("glass");
-			if (u === 81) lost.add("wood");
-			row += c;
-		}
-		grid.push(row);
-	}
-	const kinds = new Set();
-	for (let x = 0; x < SIZE; x++) for (let y = 0; y < SIZE; y++) if (KINDS[level.over[x][y]]) kinds.add(KINDS[level.over[x][y]]);
-	if (kinds.size > 1) lost.add(`colours (${[...kinds].join(", ")} in one)`);
-	// only the part with something in it
-	const used = (r) => /[^_]/.test(r);
-	while (grid.length && !used(grid[0])) grid.shift();
-	while (grid.length && !used(grid.at(-1))) grid.pop();
-	let left = Math.min(...grid.map((r) => r.search(/[^_]/)));
-	let right = Math.max(...grid.map((r) => r.length - r.split("").reverse().join("").search(/[^_]/)));
-	return { rows: grid.map((r) => r.slice(left, right).replace(/_+$/, "")), lost: [...lost] };
-}
-
-// ---- the pictures: 48 pixels a square, Pits' 24 doubled (sharp), its
-// objects (drawn over two by two squares in Pits) as they are
-
-const shapes = readShapes(...["TILES1.DAT", "TILES2.DAT", "TILES3.DAT"].map((f) => new Uint8Array(fs.readFileSync(path.join(data, f)))));
-const T = 48;
-
-function tile() { return new Uint8ClampedArray(T * T * 4); }
-function ground(n) { // a ground tile, doubled
-	const small = new Uint8ClampedArray(24 * 24 * 4);
-	blit(small, 24, shapes[n], 0, 0, false);
-	const t = tile();
-	for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) for (let k = 0; k < 4; k++) t[(y * T + x) * 4 + k] = small[((y >> 1) * 24 + (x >> 1)) * 4 + k];
-	return t;
-}
-function object(n, under) { // an object's four quarters, on a ground tile
-	const t = under === undefined ? tile() : ground(under);
-	[[0, 0, 0], [1, 24, 0], [2, 0, 24], [3, 24, 24]].forEach(([part, x, y]) => blit(t, T, shapes[n + part], x, y, true));
-	return t;
-}
-// crop: a 24-pixel window of an object's four quarters (as Pits draws it,
-// 48 by 48), doubled, so it fills a square as the ground does; at x, y, or
-// round what the picture has (the player); on a ground tile, if given
-function crop(n, under, x, y, round) {
-	const c = new Uint8ClampedArray(48 * 48 * 4);
-	[[0, 0, 0], [1, 24, 0], [2, 0, 24], [3, 24, 24]].forEach(([part, px, py]) => blit(c, 48, shapes[n + part], px, py, true));
-	if (x === undefined) {
-		let a = 48, b = 48, d = -1, e = -1;
-		for (let j = 0; j < 48; j++) for (let i = 0; i < 48; i++) if (c[(j * 48 + i) * 4 + 3]) { a = Math.min(a, i); d = Math.max(d, i); b = Math.min(b, j); e = Math.max(e, j); }
-		x = Math.round((a + d + 1) / 2 - 12);
-		y = Math.round((b + e + 1) / 2 - 12);
-	}
-	x = Math.max(0, Math.min(24, x));
-	y = Math.max(0, Math.min(24, y));
-	const t = under === undefined ? tile() : ground(under);
-	for (let j = 0; j < T; j++) for (let i = 0; i < T; i++) {
-		const s = ((y + (j >> 1)) * 48 + x + (i >> 1)) * 4;
-		// round: only the circle that fills the square, edged in black
-		const r = Math.hypot(i + 0.5 - T / 2, j + 0.5 - T / 2);
-		if (round && r > T / 2) continue;
-		if (round && r > T / 2 - 2) { t.set([0, 0, 0, 255], (j * T + i) * 4); continue; }
-		if (c[s + 3]) for (let k = 0; k < 4; k++) t[(j * T + i) * 4 + k] = c[s + k];
-	}
-	return t;
-}
-// a barrel's lid, without its side: the round of it that fills a square
-const BARREL_X = 15, BARREL_Y = 17;
-
-function wall() { // seen from above: its top face, the middle of its four quarters, doubled
-	const c = new Uint8ClampedArray(48 * 48 * 4);
-	[[0, 0, 0], [1, 24, 0], [2, 0, 24], [3, 24, 24]].forEach(([part, x, y]) => blit(c, 48, shapes[1 + part], x, y, true));
-	const t = tile();
-	for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) for (let k = 0; k < 4; k++) t[(y * T + x) * 4 + k] = c[((12 + (y >> 1)) * 48 + 12 + (x >> 1)) * 4 + k];
-	return t;
-}
-
-// the sheet: one row a picture, frames along it
-const FLOOR = 53;
-const rows = [];
-const add = (name, frames) => { rows.push({ name, frames }); return rows.length - 1; };
-add("empty_space", [ground(FLOOR)]);
-for (const [u, { n }] of Object.entries(DECOR)) add(`empty_space_${n}`, [ground(+u)]);
-add("steelwall", [wall()]);
-// the void (Sokoban's _, around and in the pits): black, over the ground
-add("invisible_steelwall", [(() => { const t = tile(); for (let i = 3; i < t.length; i += 4) t[i] = 255; return t; })()]);
-add("sokoban_object", [crop(29, undefined, BARREL_X, BARREL_Y, true)]); // see-through: R'n'D draws the ground under what moves
-add("sokoban_field_empty", [ground(56)]);
-add("sokoban_field_full", [crop(33, 56, BARREL_X, BARREL_Y, true)]);
-const dirs = { up: 0, right: 4, down: 8, left: 12 };
-for (const [dir, facing] of Object.entries(dirs)) {
-	add(`player_1.${dir}`, [crop(100 + facing)]);
-	add(`player_1.moving.${dir}`, [0, 16, 0, 32].map((f) => crop(100 + facing + f)));
-	add(`player_1.pushing.${dir}`, [0, 16].map((f) => crop(196 + facing + f)));
-}
-add("player_1", [crop(100 + 8)]);
-add("sokoban_field_player", [crop(100 + 8, 56)]);
-
-const width = T * Math.max(...rows.map((r) => r.frames.length)), height = T * rows.length;
-const sheet = new Uint8ClampedArray(width * height * 4);
-rows.forEach((r, j) => r.frames.forEach((f, i) => {
-	for (let y = 0; y < T; y++) sheet.set(f.subarray(y * T * 4, (y + 1) * T * 4), ((j * T + y) * width + i * T) * 4);
-}));
 
 function png(w, h, rgba) {
 	const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
@@ -194,80 +27,22 @@ function png(w, h, rgba) {
 	return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", head), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
 }
 
-// ---- Rocks'n'Diamonds' own level files (src/files.c SaveLevelFromFilename):
-// chunks VERS, DATE, NAME, AUTH, INFO (typed values) and BODY (16 bits a
-// square)
-
-const ELEMENT = { ...Object.fromEntries(Object.values(DECOR).map(({ char, n }) => [char, 1216 + n])), " ": 0, "#": 13, "$": 67, ".": 68, "*": 69, "@": 80, "+": 63, "_": 62 }; // EL_ numbers (src/main.h)
-
-// VIEW is how many squares the playfield shows (graphicsinfo.conf): a
-// smaller level is padded with the void to fill it, as R'n'D draws what is
-// beyond a level's edge as floor
-const VIEW = 11;
-
-function rndLevel(title, author, lines) {
-	const lw = Math.max(...lines.map((r) => r.length));
-	const w = Math.max(lw, VIEW), h = Math.max(lines.length, VIEW);
-	const left = (w - lw) >> 1, top = (h - lines.length) >> 1;
-	const rows = Array.from({ length: h }, (_, y) => {
-		const r = lines[y - top] ?? "";
-		return ("_".repeat(left) + r).padEnd(w, "_").replace(/ /g, (m, i) => (i < left ? "_" : m));
-	});
-	const chunks = [];
-	const chunk = (id, bytes) => { const head = Buffer.alloc(8); head.write(id, 0, "latin1"); head.writeUInt32BE(bytes.length, 4); chunks.push(head, Buffer.from(bytes)); };
-	const fixed = (s, n) => { const b = Buffer.alloc(n); b.write(s.slice(0, n), "latin1"); return b; };
-	chunk("VERS", [3, 0, 0, 0, 4, 4, 2, 4]); // file version 3.0, game 4.4.2.4
-	const d = new Date();
-	chunk("DATE", [d.getFullYear() >> 8, d.getFullYear() & 255, d.getMonth() + 1, d.getDate()]);
-	chunk("NAME", fixed(title, 32));
-	chunk("AUTH", fixed(author, 32));
-	// a type byte (its top bits: 0x00 one byte, 0x40 two) and the value
-	chunk("INFO", [0x01, 1, 0x41, w >> 8, w & 255, 0x42, h >> 8, h & 255, 0x43, 0, 0, 0x44, 0, 0, 0x09, 1]); // RND engine, size, no time limit, no gems, auto-exit Sokoban
-	const body = Buffer.alloc(w * h * 2);
-	rows.forEach((r, y) => { for (let x = 0; x < w; x++) body.writeUInt16BE(ELEMENT[r[x] ?? "_"] ?? 62, (y * w + x) * 2); });
-	chunk("BODY", body);
-	// the player's step is R'n'D's normal one: a square in 8 frames, about
-	// Pits' pace (a step of a whole square would repeat every frame a key is
-	// held, far faster than Pits)
-	return Buffer.concat([Buffer.from("RND1\0\0\0\0CAVE", "latin1"), ...chunks]);
-}
-
-// ---- the level set
-
 const files = fs.readdirSync(levelsDir).filter((n) => /level\d+\.pit$/i.test(n)).sort();
 let xsb = "; The Puzzle Pits, by Abe Pralle (Plasma Works), 1995: its levels as Sokoban\n\n";
-const report = [], native = [];
+const report = [];
+fs.mkdirSync(path.join(out, "graphics"), { recursive: true });
 files.forEach((name, i) => {
 	const level = readPit(new Uint8Array(fs.readFileSync(path.join(levelsDir, name))));
-	const { rows: r, lost } = toXsb(level);
-	xsb += `; ${i + 1}\n'${level.title}'\n${r.map((l) => l.replace(/[mpgreb]/g, " ")).join("\n")}\n\n`;
-	native.push(rndLevel(level.title, "Abe Pralle", r));
+	const { rows, lost } = rndConvert(level);
+	xsb += `; ${i + 1}\n'${level.title}'\n${rndXsb(rows)}\n\n`;
+	fs.writeFileSync(path.join(out, `${String(i + 1).padStart(3, "0")}.level`), rndLevelFile(level.title, "Abe Pralle", rows));
 	report.push(`${String(i + 1).padStart(2)} ${level.title.padEnd(26)} ${lost.length ? lost.join(", ") : "as in Pits"}`);
 });
-
-fs.mkdirSync(path.join(out, "graphics"), { recursive: true });
-native.forEach((b, i) => fs.writeFileSync(path.join(out, `${String(i + 1).padStart(3, "0")}.level`), b));
 fs.writeFileSync(path.join(out, "levels.xsb"), xsb); // the same levels as Sokoban text, for other Sokoban games
-fs.writeFileSync(path.join(out, "levelinfo.conf"), `file_identifier:                ROCKSNDIAMONDS_LEVELINFO_FILE_VERSION_3.0
-
-name:                           The Puzzle Pits
-author:                         Abe Pralle
-levels:                         ${files.length}
-first_level:                    1
-`);
-fs.writeFileSync(path.join(out, "graphics", "pits.png"), png(width, height, sheet));
-// the ground drawn under everything, standing or moving (the pictures of
-// what moves are see-through around it)
-// and a playfield of whole squares (11 of 48 inside its 2-pixel border),
-// in the middle of where the standard one is
-let conf = "game.tile_size:                 48\ngame.use_masked_elements:       true\n" +
-	"viewport.playfield.x:           14\nviewport.playfield.y:           14\nviewport.playfield.width:       532\nviewport.playfield.height:      532\n\n";
-rows.forEach((r, j) => {
-	conf += `${r.name}:${" ".repeat(Math.max(1, 32 - r.name.length))}pits.png\n${r.name}.xpos:${" ".repeat(Math.max(1, 27 - r.name.length))}0\n${r.name}.ypos:${" ".repeat(Math.max(1, 27 - r.name.length))}${j}\n${r.name}.frames:${" ".repeat(Math.max(1, 25 - r.name.length))}${r.frames.length}\n${r.name}.tile_size:${" ".repeat(Math.max(1, 22 - r.name.length))}${T}\n`;
-	if (r.frames.length > 1) conf += `${r.name}.delay:${" ".repeat(Math.max(1, 26 - r.name.length))}4\n`;
-	conf += "\n";
-});
-fs.writeFileSync(path.join(out, "graphics", "graphicsinfo.conf"), conf);
+fs.writeFileSync(path.join(out, "levelinfo.conf"), rndLevelinfo("The Puzzle Pits", "Abe Pralle", files.length));
+const art = rndArtwork(readShapes(...["TILES1.DAT", "TILES2.DAT", "TILES3.DAT"].map((f) => new Uint8Array(fs.readFileSync(path.join(data, f))))));
+fs.writeFileSync(path.join(out, "graphics", "pits.png"), png(art.width, art.height, art.rgba));
+fs.writeFileSync(path.join(out, "graphics", "graphicsinfo.conf"), art.conf);
 fs.writeFileSync(path.join(out, "README.txt"), `The Puzzle Pits for Rocks'n'Diamonds: Abe Pralle's 1995 levels as Sokoban,
 made by tools/pit2rnd.mjs from https://github.com/LaPingvino/The-Puzzle-Pits.
 What each level loses against the original:\n\n${report.join("\n")}\n`);

@@ -79,6 +79,24 @@
       </div>
     </section>
     <section>
+      <h2>Rocks'n'Diamonds</h2>
+      <div class="row" id="rndlost" style="margin-bottom:.4rem"></div>
+      <canvas id="rndview" style="image-rendering:pixelated;max-width:100%;background:#000;display:block;margin-bottom:.4rem"></canvas>
+      <textarea id="rndrows" spellcheck="false" style="min-height:10rem" title="The level as Sokoban rows: edit to correct it"></textarea>
+      <div class="row" style="margin-top:.4rem">
+        <button id="rndreset" title="Drops the corrections: converts the level as it is">Convert again</button>
+        <button id="rndsave" title="This level, or the whole pack if there is one, as a Rocks'n'Diamonds level set">Download for Rocks'n'Diamonds (.zip)</button>
+      </div>
+      <details>
+        <summary>Converting, and correcting by hand</summary>
+        <p>The level becomes a Sokoban level: <code>#</code> wall, <code>$</code> box, <code>.</code> goal (a target), <code>*</code> box on a goal,
+        <code>@</code> player, <code>+</code> player on a goal, space for floor, <code>_</code> the void; <code>m</code>, <code>p</code> and <code>g</code>
+        show marked tiles, plates and grass, walked over like floor. Water, lava and holes become walls; arrows, gems, keys and the
+        scripts' doings are left out. Edit the rows to correct it: the corrections stay with the level, and with the pack in its zip.</p>
+        <p>Unpack the download into <code>~/.rocksndiamonds/levels</code>. docs/RND-PORT.md in the game's source has what each of Abe's levels needs.</p>
+      </details>
+    </section>
+    <section>
       <h2>Objects</h2>
       <div class="tiles" id="objects"></div>
     </section>

@@ -9,7 +9,7 @@ const read = (p) => fs.readFileSync(new URL(p, root));
 const [out = "editor.html", game = "../"] = process.argv.slice(2);
 
 // the modules as one: imports dropped, exports made plain
-const code = ["tools/pit.mjs", "tools/tiles.mjs", "editor/editor.mjs"]
+const code = ["tools/pit.mjs", "tools/tiles.mjs", "tools/rnd.mjs", "editor/editor.mjs"]
 	.map((p) => read(p).toString().replace(/^import [^;]+;$/gm, "").replace(/^export /gm, ""))
 	.join("\n");
 

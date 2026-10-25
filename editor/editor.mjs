@@ -5,6 +5,7 @@
 
 import { readPit, writePit, disassemble, assemble, SIZE } from "../tools/pit.mjs";
 import { readShapes, drawSquare, blit, TILE } from "../tools/tiles.mjs";
+import { rndConvert, rndXsb, rndLevelFile, rndLevelinfo, rndArtwork } from "../tools/rnd.mjs";
 
 const $ = (id) => document.getElementById(id);
 const bytesOf = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -25,6 +26,7 @@ const NO_SCRIPT = 255;
 
 // the level being edited: as readPit gives it, its scripts as text
 let level, scripts, current = -1, file = "untitled.pit";
+let rndRows = null; // the level for Rocks'n'Diamonds as corrected by hand, or null: converted as it is
 let tool = { layer: "under", tile: 53 }; // or { layer: "over", tile } or { layer: "script" } or { layer: "erase" }
 const undo = [], redo = [];
 
@@ -38,9 +40,10 @@ function newLevel() {
 }
 
 // load a level: its scripts disassembled to text
-function load(lv, name) {
+function load(lv, name, rnd = null) {
 	level = lv;
 	file = name;
+	rndRows = rnd;
 	if (!level.pitcode) level.pitcode = emptyGrid(NO_SCRIPT);
 	scripts = level.scripts.map((s) => ({ index: s.index, name: s.name, text: s.size ? disassemble(level.code, s.offset).lines.join("\n") : "", empty: !s.size, size: s.size, original: s.size ? level.code.subarray(s.offset, s.offset + disassemble(level.code, s.offset).length) : null }));
 	current = scripts.length ? 0 : -1;
@@ -50,6 +53,7 @@ function load(lv, name) {
 	$("file").textContent = name;
 	showScripts();
 	draw();
+	showRnd(true);
 	status(`${name}: ${level.title}`);
 }
 
@@ -109,6 +113,7 @@ function draw() {
 		ctx.strokeStyle = "#ff0";
 		ctx.strokeRect(hover[0] * TILE + .5, hover[1] * TILE + .5, TILE - 1, TILE - 1);
 	}
+	if (rndRows === null) showRnd();
 }
 
 function squareAt(e) {
@@ -350,6 +355,61 @@ addEventListener("keydown", (e) => {
 	}
 });
 
+// ---- Rocks'n'Diamonds: the level as Sokoban rows (tools/rnd.mjs), shown
+// as R'n'D will draw it; the rows can be corrected by hand, and the level
+// (or the pack) downloaded as an R'n'D level set
+
+const rndArt = rndArtwork(shapes);
+const rndSheet = document.createElement("canvas");
+rndSheet.width = rndArt.width;
+rndSheet.height = rndArt.height;
+rndSheet.getContext("2d").putImageData(new ImageData(rndArt.rgba, rndArt.width, rndArt.height), 0, 0);
+
+function showRnd(fresh) {
+	const auto = rndConvert(level);
+	const rows = rndRows ?? auto.rows;
+	if (fresh || (rndRows === null && document.activeElement !== $("rndrows"))) $("rndrows").value = rows.join("\n");
+	$("rndlost").textContent = (rndRows !== null ? "Corrected by hand. " : "") + (auto.lost.length ? "Not in R'n'D: " + auto.lost.join(", ") + "." : "Plays as in Pits.");
+	const S = 24, w = Math.max(1, ...rows.map((r) => r.length)), view = $("rndview"), g = view.getContext("2d");
+	view.width = w * S;
+	view.height = Math.max(1, rows.length) * S;
+	g.imageSmoothingEnabled = false;
+	const T = rndArt.tile;
+	rows.forEach((r, y) => [...r.padEnd(w, "_")].forEach((c, x) => {
+		if (c !== "_") g.drawImage(rndSheet, 0, rndArt.where[" "], T, T, x * S, y * S, S, S); // the ground under it
+		const at = rndArt.where[c];
+		if (at === undefined) { g.fillStyle = "#f44"; g.fillRect(x * S + 6, y * S + 6, S - 12, S - 12); return; }
+		g.drawImage(rndSheet, 0, at, T, T, x * S, y * S, S, S);
+	}));
+}
+$("rndrows").addEventListener("input", (e) => { rndRows = e.target.value.replace(/\s+$/, "").split("\n"); showRnd(); });
+$("rndreset").addEventListener("click", () => { rndRows = null; showRnd(true); });
+
+$("rndsave").addEventListener("click", async () => {
+	if (!keepPackLevel()) return;
+	const entries = pack.length ? pack.map((p) => ({ level: readPit(p.bytes), rnd: p.rnd ?? null })) : [{ level: build(), rnd: rndRows }];
+	const name = (pack.length && $("packname").value.trim()) || entries[0].level.title || "My Pits";
+	const author = $("packauthor").value.trim();
+	const folder = name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "pits";
+	const enc = new TextEncoder(), files = [];
+	let xsb = `; ${name}\n\n`;
+	entries.forEach(({ level: lv, rnd }, k) => {
+		const rows = rnd ?? rndConvert(lv).rows;
+		files.push({ name: `${folder}/${String(k + 1).padStart(3, "0")}.level`, bytes: rndLevelFile(lv.title, author, rows) });
+		xsb += `; ${k + 1}\n'${lv.title}'\n${rndXsb(rows)}\n\n`;
+	});
+	const png = new Uint8Array(await (await new Promise((ok) => rndSheet.toBlob(ok, "image/png"))).arrayBuffer());
+	files.push({ name: `${folder}/levelinfo.conf`, bytes: enc.encode(rndLevelinfo(name, author, entries.length)) },
+		{ name: `${folder}/levels.xsb`, bytes: enc.encode(xsb) },
+		{ name: `${folder}/graphics/pits.png`, bytes: png },
+		{ name: `${folder}/graphics/graphicsinfo.conf`, bytes: enc.encode(rndArt.conf) });
+	const a = document.createElement("a");
+	a.href = URL.createObjectURL(zip(files));
+	a.download = folder + "-rocksndiamonds.zip";
+	a.click();
+	status(`Saved ${a.download}: unpack it into ~/.rocksndiamonds/levels`);
+});
+
 // ---- level packs: a folder of LEVEL01.PIT, LEVEL02.PIT ... and pack.txt,
 // shared as a zip (the game finds them in its PACKS folder)
 
@@ -376,20 +436,21 @@ function keepPackLevel() {
 	const bytes = save();
 	if (!bytes) return false;
 	pack[packAt].bytes = bytes;
+	pack[packAt].rnd = rndRows;
 	return true;
 }
 
 $("pack").addEventListener("change", (e) => {
 	if (!keepPackLevel()) { $("pack").value = packAt; return; }
 	packAt = +e.target.value;
-	load(readPit(pack[packAt].bytes), `LEVEL${String(packAt + 1).padStart(2, "0")}.PIT`);
+	load(readPit(pack[packAt].bytes), `LEVEL${String(packAt + 1).padStart(2, "0")}.PIT`, pack[packAt].rnd);
 	showPack();
 });
 $("packadd").addEventListener("click", () => {
 	if (!keepPackLevel()) return;
 	const bytes = save();
 	if (!bytes) return;
-	pack.push({ bytes });
+	pack.push({ bytes, rnd: rndRows });
 	packAt = pack.length - 1;
 	file = `LEVEL${String(pack.length).padStart(2, "0")}.PIT`;
 	$("file").textContent = file;
@@ -463,6 +524,8 @@ $("packsave").addEventListener("click", () => {
 	const name = $("packname").value.trim() || "My Pits";
 	const folder = name.replace(/[^A-Za-z0-9_-]+/g, "_");
 	const files = pack.map((p, k) => ({ name: `${folder}/LEVEL${String(k + 1).padStart(2, "0")}.PIT`, bytes: p.bytes }));
+	// hand corrections for Rocks'n'Diamonds, kept with the pack (the game skips them)
+	pack.forEach((p, k) => { if (p.rnd) files.push({ name: `${folder}/rnd/LEVEL${String(k + 1).padStart(2, "0")}.xsb`, bytes: new TextEncoder().encode(p.rnd.join("\n") + "\n") }); });
 	files.push({ name: `${folder}/pack.txt`, bytes: new TextEncoder().encode(`name=${name}\nauthor=${$("packauthor").value.trim()}\n`) });
 	const a = document.createElement("a");
 	a.href = URL.createObjectURL(zip(files));
@@ -485,12 +548,13 @@ $("packopen").addEventListener("change", async (e) => {
 		if (!levels.length) throw new Error("no LEVELnn.PIT files in it");
 		for (const l of levels) readPit(l.bytes); // all of them levels
 		pack.length = 0;
-		pack.push(...levels.map((l) => ({ bytes: l.bytes })));
+		const fix = (l) => files.find((f) => f.name.toLowerCase().endsWith("rnd/" + l.name.split("/").pop().replace(/\.pit$/i, ".xsb").toLowerCase()));
+		pack.push(...levels.map((l) => { const f = fix(l); return { bytes: l.bytes, rnd: f ? new TextDecoder().decode(f.bytes).replace(/\s+$/, "").split("\n") : null }; }));
 		const txt = info ? new TextDecoder().decode(info.bytes) : "";
 		$("packname").value = (/^name=(.*)$/m.exec(txt) || [, ""])[1].trim();
 		$("packauthor").value = (/^author=(.*)$/m.exec(txt) || [, ""])[1].trim();
 		packAt = 0;
-		load(readPit(pack[0].bytes), "LEVEL01.PIT");
+		load(readPit(pack[0].bytes), "LEVEL01.PIT", pack[0].rnd);
 		showPack();
 		status(`Opened a pack of ${pack.length} levels`);
 	} catch (err) {
