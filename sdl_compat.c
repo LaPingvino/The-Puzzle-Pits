@@ -105,7 +105,11 @@ int init_sdl_compat(void) {
         "The Puzzle Pits",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
+#ifdef __EMSCRIPTEN__
+        320, 200, // the page scales the canvas, by whole numbers (shell.html)
+#else
         960, 600,
+#endif
         SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
     );
     

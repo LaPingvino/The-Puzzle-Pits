@@ -7,7 +7,7 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: #ccc; font: 14px sans-serif; }
   body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  canvas { width: min(100vw, 160vh); aspect-ratio: 8 / 5; image-rendering: pixelated; outline: none; }
+  canvas { image-rendering: pixelated; outline: none; }
   p { margin: .6em 1em; text-align: center; }
   a { color: #8cf; }
 </style>
@@ -25,6 +25,17 @@
     onRuntimeInitialized: function () { canvas.focus(); },
   };
   canvas.addEventListener("click", function () { canvas.focus(); });
+  // the 320x200 screen at the biggest whole multiple that fits, so every
+  // pixel is as wide as the next (a fraction made the letters uneven)
+  function fit() {
+    var room = innerHeight - document.querySelectorAll("p")[1].offsetHeight - 24;
+    var k = Math.max(1, Math.floor(Math.min(innerWidth / 320, room / 200)));
+    if (innerWidth < 320) k = innerWidth / 320; // a narrow phone: smaller
+    canvas.style.width = 320 * k + "px";
+    canvas.style.height = 200 * k + "px";
+  }
+  addEventListener("resize", fit);
+  fit();
 </script>
 {{{ SCRIPT }}}
 </body>
