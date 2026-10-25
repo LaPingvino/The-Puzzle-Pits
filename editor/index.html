@@ -57,6 +57,21 @@
   </div>
   <div>
     <section>
+      <h2>Level pack</h2>
+      <div class="fields" style="margin-bottom:.5rem">
+        <label for="packname">Name</label><input id="packname" placeholder="My Pits">
+        <label for="packauthor">Author</label><input id="packauthor">
+      </div>
+      <select id="pack" size="5" style="width:100%"></select>
+      <div class="row" style="margin-top:.5rem">
+        <button id="packadd" title="Adds the level being edited at the end of the pack">Add this level</button>
+        <button id="packup">Up</button><button id="packdown">Down</button><button id="packremove">Remove</button>
+        <label class="file">Open pack…<input id="packopen" type="file" accept=".zip,.pit,.PIT" multiple></label>
+        <button id="packsave">Download pack (.zip)</button>
+      </div>
+      <div class="row" style="margin-top:.3rem">Click a level to edit it. Unpacked into the game's PACKS folder, a pack shows on its title screen.</div>
+    </section>
+    <section>
       <h2>Level</h2>
       <div class="fields">
         <label for="title">Title</label><input id="title" maxlength="40">

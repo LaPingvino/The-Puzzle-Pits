@@ -322,6 +322,9 @@ $("open").addEventListener("change", async (e) => {
 });
 
 $("levels").addEventListener("change", (e) => {
+	if (!keepPackLevel()) return;
+	packAt = -1;
+	showPack();
 	const name = e.target.value;
 	if (name === "new") load(newLevel(), "untitled.pit");
 	else load(readPit(bytesOf(PITS_DATA.levels[name])), name);
@@ -344,6 +347,154 @@ addEventListener("keydown", (e) => {
 		e.preventDefault();
 		const from = e.shiftKey ? redo : undo, to = e.shiftKey ? undo : redo;
 		if (from.length) { to.push(snapshot()); restore(from.pop()); }
+	}
+});
+
+// ---- level packs: a folder of LEVEL01.PIT, LEVEL02.PIT ... and pack.txt,
+// shared as a zip (the game finds them in its PACKS folder)
+
+const pack = []; // { name, bytes }
+let packAt = -1; // the pack's level being edited, -1 for none
+
+function showPack() {
+	const list = $("pack");
+	list.innerHTML = "";
+	pack.forEach((p, k) => {
+		const o = document.createElement("option");
+		o.value = k;
+		let title = "";
+		try { title = readPit(p.bytes).title; } catch {}
+		o.textContent = `LEVEL${String(k + 1).padStart(2, "0")} · ${title}`;
+		list.append(o);
+	});
+	list.value = packAt;
+}
+
+// keep the edits to the pack's level being edited
+function keepPackLevel() {
+	if (packAt < 0) return true;
+	const bytes = save();
+	if (!bytes) return false;
+	pack[packAt].bytes = bytes;
+	return true;
+}
+
+$("pack").addEventListener("change", (e) => {
+	if (!keepPackLevel()) { $("pack").value = packAt; return; }
+	packAt = +e.target.value;
+	load(readPit(pack[packAt].bytes), `LEVEL${String(packAt + 1).padStart(2, "0")}.PIT`);
+	showPack();
+});
+$("packadd").addEventListener("click", () => {
+	if (!keepPackLevel()) return;
+	const bytes = save();
+	if (!bytes) return;
+	pack.push({ bytes });
+	packAt = pack.length - 1;
+	file = `LEVEL${String(pack.length).padStart(2, "0")}.PIT`;
+	$("file").textContent = file;
+	showPack();
+	status(`Added as ${file}`);
+});
+function move(d) {
+	const k = packAt, j = k + d;
+	if (k < 0 || j < 0 || j >= pack.length || !keepPackLevel()) return;
+	[pack[k], pack[j]] = [pack[j], pack[k]];
+	packAt = j;
+	showPack();
+}
+$("packup").addEventListener("click", () => move(-1));
+$("packdown").addEventListener("click", () => move(1));
+$("packremove").addEventListener("click", () => {
+	if (packAt < 0 || !confirm("Remove this level from the pack?")) return;
+	pack.splice(packAt, 1);
+	packAt = -1;
+	showPack();
+});
+
+// a zip of the pack, stored (not compressed): a folder named after it
+const CRC = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+function crc32(b) { let c = 0xffffffff; for (const x of b) c = CRC[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function zip(files) {
+	const enc = new TextEncoder(), parts = [], dir = [];
+	let off = 0;
+	for (const { name, bytes } of files) {
+		const n = enc.encode(name), crc = crc32(bytes);
+		const head = new DataView(new ArrayBuffer(30));
+		head.setUint32(0, 0x04034b50, true); head.setUint16(4, 20, true); head.setUint32(14, crc, true);
+		head.setUint32(18, bytes.length, true); head.setUint32(22, bytes.length, true); head.setUint16(26, n.length, true);
+		const cen = new DataView(new ArrayBuffer(46));
+		cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint32(16, crc, true);
+		cen.setUint32(20, bytes.length, true); cen.setUint32(24, bytes.length, true); cen.setUint16(28, n.length, true); cen.setUint32(42, off, true);
+		parts.push(new Uint8Array(head.buffer), n, bytes);
+		dir.push(new Uint8Array(cen.buffer), n);
+		off += 30 + n.length + bytes.length;
+	}
+	const size = dir.reduce((a, b) => a + b.length, 0);
+	const end = new DataView(new ArrayBuffer(22));
+	end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+	end.setUint32(12, size, true); end.setUint32(16, off, true);
+	return new Blob([...parts, ...dir, new Uint8Array(end.buffer)], { type: "application/zip" });
+}
+// the files in a zip: stored or deflated (by the browser)
+async function unzip(buf) {
+	const v = new DataView(buf), out = [];
+	let e = buf.byteLength - 22;
+	while (e >= 0 && v.getUint32(e, true) !== 0x06054b50) e--;
+	if (e < 0) throw new Error("not a zip");
+	let p = v.getUint32(e + 16, true);
+	for (let k = v.getUint16(e + 10, true); k > 0; k--) {
+		const method = v.getUint16(p + 10, true), csize = v.getUint32(p + 20, true);
+		const nlen = v.getUint16(p + 28, true), xlen = v.getUint16(p + 30, true), clen = v.getUint16(p + 32, true), local = v.getUint32(p + 42, true);
+		const name = new TextDecoder().decode(new Uint8Array(buf, p + 46, nlen));
+		const start = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
+		let bytes = new Uint8Array(buf, start, csize);
+		if (method === 8) bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+		else if (method !== 0) throw new Error(`${name}: compressed in a way this cannot read`);
+		out.push({ name, bytes });
+		p += 46 + nlen + xlen + clen;
+	}
+	return out;
+}
+
+$("packsave").addEventListener("click", () => {
+	if (!keepPackLevel()) return;
+	if (!pack.length) { status("Add a level to the pack first"); return; }
+	const name = $("packname").value.trim() || "My Pits";
+	const folder = name.replace(/[^A-Za-z0-9_-]+/g, "_");
+	const files = pack.map((p, k) => ({ name: `${folder}/LEVEL${String(k + 1).padStart(2, "0")}.PIT`, bytes: p.bytes }));
+	files.push({ name: `${folder}/pack.txt`, bytes: new TextEncoder().encode(`name=${name}\nauthor=${$("packauthor").value.trim()}\n`) });
+	const a = document.createElement("a");
+	a.href = URL.createObjectURL(zip(files));
+	a.download = folder + ".zip";
+	a.click();
+	status(`Saved ${a.download}: unpack it into the game's PACKS folder`);
+});
+
+$("packopen").addEventListener("change", async (e) => {
+	const chosen = [...e.target.files];
+	e.target.value = "";
+	try {
+		let files = [];
+		for (const f of chosen) {
+			if (/\.zip$/i.test(f.name)) files.push(...(await unzip(await f.arrayBuffer())));
+			else files.push({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) });
+		}
+		const info = files.find((f) => /(^|\/)pack\.txt$/i.test(f.name));
+		const levels = files.filter((f) => /level\d+\.pit$/i.test(f.name)).sort((a, b) => +a.name.match(/(\d+)\.pit$/i)[1] - +b.name.match(/(\d+)\.pit$/i)[1]);
+		if (!levels.length) throw new Error("no LEVELnn.PIT files in it");
+		for (const l of levels) readPit(l.bytes); // all of them levels
+		pack.length = 0;
+		pack.push(...levels.map((l) => ({ bytes: l.bytes })));
+		const txt = info ? new TextDecoder().decode(info.bytes) : "";
+		$("packname").value = (/^name=(.*)$/m.exec(txt) || [, ""])[1].trim();
+		$("packauthor").value = (/^author=(.*)$/m.exec(txt) || [, ""])[1].trim();
+		packAt = 0;
+		load(readPit(pack[0].bytes), "LEVEL01.PIT");
+		showPack();
+		status(`Opened a pack of ${pack.length} levels`);
+	} catch (err) {
+		status(`Could not open the pack: ${err.message}`);
 	}
 });
 

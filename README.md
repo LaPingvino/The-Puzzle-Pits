@@ -22,7 +22,7 @@ The level editor is online at **https://lapingvino.github.io/The-Puzzle-Pits/edi
 
 ### Level packs
 
-As in Rocks'n'Diamonds, levels come in packs. Abe's forty are the first; any other is a folder of `LEVEL01.PIT`, `LEVEL02.PIT` and so on, with an optional `pack.txt` holding `name=` and `author=` lines. The game looks for them in a `PACKS` folder beside its data, and in `packs` in its user data folder (`~/.local/share/PlasmaWorks/PuzzlePits/packs` on Linux). When there are more packs than Abe's, the title screen's first line picks one with Left and Right, and each pack remembers its own progress. Packs aren't in the web version yet.
+As in Rocks'n'Diamonds, levels come in packs. Abe's forty are the first; any other is a folder of `LEVEL01.PIT`, `LEVEL02.PIT` and so on, with an optional `pack.txt` holding `name=` and `author=` lines. The game looks for them in a `PACKS` folder beside its data, and in `packs` in its user data folder (`~/.local/share/PlasmaWorks/PuzzlePits/packs` on Linux). When there are more packs than Abe's, the title screen's first line picks one with Left and Right, and each pack remembers its own progress. The editor makes them: add levels to its pack, then **Download pack (.zip)**, and unpack the zip into `PACKS`; it opens packs again from their zip. Packs aren't in the web version of the game yet.
 
 The level format and the script language are described in [docs/PIT-FORMAT.md](docs/PIT-FORMAT.md); `node tools/pit_test.mjs` checks that every one of Abe's levels reads and writes back byte for byte. `node tools/build-editor.mjs editor.html` builds the editor.
 
