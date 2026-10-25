@@ -1,12 +1,14 @@
 # The Puzzle Pits
 
-A puzzle game from 1995 by Abe Pralle (Plasma Works), first for DOS, now for Linux, Windows and macOS. Push barrels, step on plates, mind the lava, and find the way out of forty pits.
+A puzzle game from 1995 by Abe Pralle (Plasma Works), first for DOS, now for Linux, Windows, macOS and the web. Push barrels, step on plates, mind the lava, and find the way out of forty pits.
 
 The source was released under the Apache 2.0 License with Abe's permission (see README), and the game's data may be freely distributed (see PITS95/readme.txt).
 
 ## Play
 
-Download the game for your system from the [releases](https://github.com/LaPingvino/The-Puzzle-Pits/releases), unpack it, and start `puzzle-pits`.
+Play it online at **https://lapingvino.github.io/The-Puzzle-Pits/**, or download it:
+
+the [releases](https://github.com/LaPingvino/The-Puzzle-Pits/releases) have it for each system: unpack it and start `puzzle-pits`.
 
 - **Linux:** SDL2 needs to be installed. On most systems it is already; if not, install `sdl2` or `libsdl2-2.0-0`.
 - **Windows:** SDL2 comes with the game.
@@ -28,6 +30,8 @@ Cross-compiling for Windows uses SDL2's own Windows build: unpack `SDL2-devel-â€
 ```sh
 zig build -Dtarget=x86_64-windows-gnu -Dsdl-prefix=SDL2-â€¦/x86_64-w64-mingw32
 ```
+
+`zig build web` builds it for a browser into zig-out/web, with [Emscripten](https://emscripten.org) (its `emcc` on the PATH).
 
 `zig build -Dsdl=false` builds without SDL2; it compiles, but shows and plays nothing.
 

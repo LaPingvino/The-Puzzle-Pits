@@ -66,10 +66,14 @@ pub fn build(b: *std.Build) void {
     // give the page its turn
     const web = b.addSystemCommand(&.{ "emcc", "-O2", "-sUSE_SDL=2", "-sASYNCIFY", "-sALLOW_MEMORY_GROWTH", "-sEXIT_RUNTIME" });
     web.addArgs(&base);
-    web.addArgs(&.{ "-DUSE_SDL", "-DSDL_MAIN_HANDLED", "-x", "c" });
-    for (sources) |src| web.addFileArg(b.path(src));
-    web.addFileArg(b.path("PITS.C"));
-    web.addArgs(&.{ "-x", "none" });
+    web.addArgs(&.{ "-DUSE_SDL", "-DSDL_MAIN_HANDLED" });
+    web.addPrefixedDirectoryArg("-I", b.path("."));
+    // emcc takes .C for C++ whatever -x says: copies named .c
+    const lower = b.addWriteFiles();
+    for (sources ++ [_][]const u8{"PITS.C"}) |src| {
+        const name = b.fmt("{s}.c", .{src[0 .. src.len - 2]});
+        web.addFileArg(lower.addCopyFile(b.path(src), name));
+    }
     web.addFileArg(b.path("sdl_compat.c"));
     web.addArgs(&.{ "--preload-file", "PITS95@/", "--shell-file" });
     web.addFileArg(b.path("web/shell.html"));

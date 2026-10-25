@@ -1,7 +1,8 @@
 name: Build
 
-# Every push to master builds the game for Linux, Windows and macOS; a v*
-# tag also makes a release of them, each with the game's data, to play.
+# Every push to master builds the game for Linux, Windows, macOS and the
+# web, and puts the web version on GitHub Pages; a v* tag also makes a
+# release of the others, each with the game's data, to play.
 on:
   push:
     branches: [master]
@@ -87,6 +88,35 @@ jobs:
         with:
           name: macos
           path: dist/*
+
+  web:
+    # the game for a browser, with Emscripten
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - uses: mymindstorm/setup-emsdk@v14
+      - run: zig build web
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: zig-out/web
+
+  pages:
+    # played online at the repository's GitHub Pages
+    if: github.ref == 'refs/heads/master'
+    needs: web
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
 
   release:
     if: github.ref_type == 'tag'
