@@ -95,7 +95,7 @@ function object(n, under) { // an object's four quarters, on a ground tile
 // crop: a 24-pixel window of an object's four quarters (as Pits draws it,
 // 48 by 48), doubled, so it fills a square as the ground does; at x, y, or
 // round what the picture has (the player); on a ground tile, if given
-function crop(n, under, x, y) {
+function crop(n, under, x, y, round) {
 	const c = new Uint8ClampedArray(48 * 48 * 4);
 	[[0, 0, 0], [1, 24, 0], [2, 0, 24], [3, 24, 24]].forEach(([part, px, py]) => blit(c, 48, shapes[n + part], px, py, true));
 	if (x === undefined) {
@@ -109,12 +109,16 @@ function crop(n, under, x, y) {
 	const t = under === undefined ? tile() : ground(under);
 	for (let j = 0; j < T; j++) for (let i = 0; i < T; i++) {
 		const s = ((y + (j >> 1)) * 48 + x + (i >> 1)) * 4;
+		// round: only the circle that fills the square, edged in black
+		const r = Math.hypot(i + 0.5 - T / 2, j + 0.5 - T / 2);
+		if (round && r > T / 2) continue;
+		if (round && r > T / 2 - 2) { t.set([0, 0, 0, 255], (j * T + i) * 4); continue; }
 		if (c[s + 3]) for (let k = 0; k < 4; k++) t[(j * T + i) * 4 + k] = c[s + k];
 	}
 	return t;
 }
-// a barrel's lid, without its side: it fills its square
-const BARREL_TOP = 16;
+// a barrel's lid, without its side: the round of it that fills a square
+const BARREL_X = 15, BARREL_Y = 17;
 
 function wall() { // seen from above: its top face, the middle of its four quarters, doubled
 	const c = new Uint8ClampedArray(48 * 48 * 4);
@@ -133,9 +137,9 @@ for (const [u, { n }] of Object.entries(DECOR)) add(`empty_space_${n}`, [ground(
 add("steelwall", [wall()]);
 // the void (Sokoban's _, around and in the pits): black, over the ground
 add("invisible_steelwall", [(() => { const t = tile(); for (let i = 3; i < t.length; i += 4) t[i] = 255; return t; })()]);
-add("sokoban_object", [crop(29, undefined, BARREL_TOP, BARREL_TOP)]); // see-through: R'n'D draws the ground under what moves
+add("sokoban_object", [crop(29, undefined, BARREL_X, BARREL_Y, true)]); // see-through: R'n'D draws the ground under what moves
 add("sokoban_field_empty", [ground(56)]);
-add("sokoban_field_full", [crop(33, 56, BARREL_TOP, BARREL_TOP)]);
+add("sokoban_field_full", [crop(33, 56, BARREL_X, BARREL_Y, true)]);
 const dirs = { up: 0, right: 4, down: 8, left: 12 };
 for (const [dir, facing] of Object.entries(dirs)) {
 	add(`player_1.${dir}`, [crop(100 + facing)]);
