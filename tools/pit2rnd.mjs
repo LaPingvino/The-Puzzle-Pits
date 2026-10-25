@@ -29,6 +29,10 @@ const BLOCKED = new Set([0, 83, 84, 88, 92, 96]); // void, hole, water, lava (an
 const PLAYER = 100;
 const KINDS = { 29: "barrel", 33: "barrel", 37: "crate", 41: "crate", 45: "chest", 49: "chest" };
 
+// ground with no part in a Sokoban level, shown as it is: R'n'D's
+// decorative empty spaces (EL_EMPTY_SPACE_1 is 1217, src/conf_emp.h)
+const DECOR = { 57: { char: "m", n: 1 }, 58: { char: "p", n: 2 }, 82: { char: "g", n: 3 } };
+
 function toXsb(level) {
 	const lost = new Set();
 	const grid = [];
@@ -45,7 +49,7 @@ function toXsb(level) {
 			else if (WALLS.has(o)) c = "#";
 			else if (u === 0) c = "_";
 			else if (BLOCKED.has(u)) { c = "#"; lost.add({ 83: "holes", 84: "water", 88: "lava", 92: "lava", 96: "lava" }[u]); }
-			else c = goal ? "." : " ";
+			else c = goal ? "." : DECOR[u === 59 ? 58 : u]?.char ?? " ";
 			if (o === 21 || o === 25) lost.add("barrels in water or holes");
 			if (u >= 60 && u <= 63) lost.add("arrows");
 			if (u >= 64 && u <= 67) lost.add("gems");
@@ -125,6 +129,7 @@ const FLOOR = 53;
 const rows = [];
 const add = (name, frames) => { rows.push({ name, frames }); return rows.length - 1; };
 add("empty_space", [ground(FLOOR)]);
+for (const [u, { n }] of Object.entries(DECOR)) add(`empty_space_${n}`, [ground(+u)]);
 add("steelwall", [wall()]);
 // the void (Sokoban's _, around and in the pits): black, over the ground
 add("invisible_steelwall", [(() => { const t = tile(); for (let i = 3; i < t.length; i += 4) t[i] = 255; return t; })()]);
@@ -165,7 +170,7 @@ function png(w, h, rgba) {
 // chunks VERS, DATE, NAME, AUTH, INFO (typed values) and BODY (16 bits a
 // square)
 
-const ELEMENT = { " ": 0, "#": 13, "$": 67, ".": 68, "*": 69, "@": 80, "+": 63, "_": 62 }; // EL_ numbers (src/main.h)
+const ELEMENT = { ...Object.fromEntries(Object.values(DECOR).map(({ char, n }) => [char, 1216 + n])), " ": 0, "#": 13, "$": 67, ".": 68, "*": 69, "@": 80, "+": 63, "_": 62 }; // EL_ numbers (src/main.h)
 
 // VIEW is how many squares the playfield shows (graphicsinfo.conf): a
 // smaller level is padded with the void to fill it, as R'n'D draws what is
@@ -207,7 +212,7 @@ const report = [], native = [];
 files.forEach((name, i) => {
 	const level = readPit(new Uint8Array(fs.readFileSync(path.join(levelsDir, name))));
 	const { rows: r, lost } = toXsb(level);
-	xsb += `; ${i + 1}\n'${level.title}'\n${r.join("\n")}\n\n`;
+	xsb += `; ${i + 1}\n'${level.title}'\n${r.map((l) => l.replace(/[mpg]/g, " ")).join("\n")}\n\n`;
 	native.push(rndLevel(level.title, "Abe Pralle", r));
 	report.push(`${String(i + 1).padStart(2)} ${level.title.padEnd(26)} ${lost.length ? lost.join(", ") : "as in Pits"}`);
 });
