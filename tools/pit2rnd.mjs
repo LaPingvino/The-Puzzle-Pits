@@ -88,6 +88,30 @@ function object(n, under) { // an object's four quarters, on a ground tile
 	[[0, 0, 0], [1, 24, 0], [2, 0, 24], [3, 24, 24]].forEach(([part, x, y]) => blit(t, T, shapes[n + part], x, y, true));
 	return t;
 }
+// crop: a 24-pixel window of an object's four quarters (as Pits draws it,
+// 48 by 48), doubled, so it fills a square as the ground does; at x, y, or
+// round what the picture has (the player); on a ground tile, if given
+function crop(n, under, x, y) {
+	const c = new Uint8ClampedArray(48 * 48 * 4);
+	[[0, 0, 0], [1, 24, 0], [2, 0, 24], [3, 24, 24]].forEach(([part, px, py]) => blit(c, 48, shapes[n + part], px, py, true));
+	if (x === undefined) {
+		let a = 48, b = 48, d = -1, e = -1;
+		for (let j = 0; j < 48; j++) for (let i = 0; i < 48; i++) if (c[(j * 48 + i) * 4 + 3]) { a = Math.min(a, i); d = Math.max(d, i); b = Math.min(b, j); e = Math.max(e, j); }
+		x = Math.round((a + d + 1) / 2 - 12);
+		y = Math.round((b + e + 1) / 2 - 12);
+	}
+	x = Math.max(0, Math.min(24, x));
+	y = Math.max(0, Math.min(24, y));
+	const t = under === undefined ? tile() : ground(under);
+	for (let j = 0; j < T; j++) for (let i = 0; i < T; i++) {
+		const s = ((y + (j >> 1)) * 48 + x + (i >> 1)) * 4;
+		if (c[s + 3]) for (let k = 0; k < 4; k++) t[(j * T + i) * 4 + k] = c[s + k];
+	}
+	return t;
+}
+// a barrel's lid, without its side: it fills its square
+const BARREL_TOP = 16;
+
 function wall() { // seen from above: its top face, the middle of its four quarters, doubled
 	const c = new Uint8ClampedArray(48 * 48 * 4);
 	[[0, 0, 0], [1, 24, 0], [2, 0, 24], [3, 24, 24]].forEach(([part, x, y]) => blit(c, 48, shapes[1 + part], x, y, true));
@@ -104,17 +128,17 @@ add("empty_space", [ground(FLOOR)]);
 add("steelwall", [wall()]);
 // the void (Sokoban's _, around and in the pits): black, over the ground
 add("invisible_steelwall", [(() => { const t = tile(); for (let i = 3; i < t.length; i += 4) t[i] = 255; return t; })()]);
-add("sokoban_object", [object(29)]); // see-through: R'n'D draws the ground under what moves
+add("sokoban_object", [crop(29, undefined, BARREL_TOP, BARREL_TOP)]); // see-through: R'n'D draws the ground under what moves
 add("sokoban_field_empty", [ground(56)]);
-add("sokoban_field_full", [object(33, 56)]);
+add("sokoban_field_full", [crop(33, 56, BARREL_TOP, BARREL_TOP)]);
 const dirs = { up: 0, right: 4, down: 8, left: 12 };
 for (const [dir, facing] of Object.entries(dirs)) {
-	add(`player_1.${dir}`, [object(100 + facing)]);
-	add(`player_1.moving.${dir}`, [0, 16, 0, 32].map((f) => object(100 + facing + f)));
-	add(`player_1.pushing.${dir}`, [0, 16].map((f) => object(196 + facing + f)));
+	add(`player_1.${dir}`, [crop(100 + facing)]);
+	add(`player_1.moving.${dir}`, [0, 16, 0, 32].map((f) => crop(100 + facing + f)));
+	add(`player_1.pushing.${dir}`, [0, 16].map((f) => crop(196 + facing + f)));
 }
-add("player_1", [object(100 + 8)]);
-add("sokoban_field_player", [object(100 + 8, 56)]);
+add("player_1", [crop(100 + 8)]);
+add("sokoban_field_player", [crop(100 + 8, 56)]);
 
 const width = T * Math.max(...rows.map((r) => r.frames.length)), height = T * rows.length;
 const sheet = new Uint8ClampedArray(width * height * 4);
