@@ -25,7 +25,7 @@ pkgver() {
 
 build() {
   cd "$srcdir/$_pkgname-src"
-  zig build -Doptimize=ReleaseSafe --global-cache-dir "$srcdir/zig-cache"
+  ZIG_GLOBAL_CACHE_DIR="$srcdir/zig-cache" zig build -Doptimize=ReleaseSafe
 }
 
 package() {
