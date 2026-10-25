@@ -88,11 +88,11 @@ function object(n, under) { // an object's four quarters, on a ground tile
 	[[0, 0, 0], [1, 24, 0], [2, 0, 24], [3, 24, 24]].forEach(([part, x, y]) => blit(t, T, shapes[n + part], x, y, true));
 	return t;
 }
-function wall() { // a wall among walls: all its quarters in one square, doubled
-	const small = new Uint8ClampedArray(24 * 24 * 4);
-	for (let part = 0; part < 4; part++) blit(small, 24, shapes[1 + part], 0, 0, true);
+function wall() { // seen from above: its top face, the middle of its four quarters, doubled
+	const c = new Uint8ClampedArray(48 * 48 * 4);
+	[[0, 0, 0], [1, 24, 0], [2, 0, 24], [3, 24, 24]].forEach(([part, x, y]) => blit(c, 48, shapes[1 + part], x, y, true));
 	const t = tile();
-	for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) for (let k = 0; k < 4; k++) t[(y * T + x) * 4 + k] = small[((y >> 1) * 24 + (x >> 1)) * 4 + k];
+	for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) for (let k = 0; k < 4; k++) t[(y * T + x) * 4 + k] = c[((12 + (y >> 1)) * 48 + 12 + (x >> 1)) * 4 + k];
 	return t;
 }
 
