@@ -70,7 +70,7 @@ jobs:
       - uses: mlugg/setup-zig@v2
         with:
           version: ${{ env.ZIG_VERSION }}
-      - run: brew install sdl2 dylibbundler
+      - run: brew install sdl2 sdl3 dylibbundler
       - run: zig build -Doptimize=ReleaseSafe -Dsdl-prefix=$(brew --prefix sdl2)
       - name: Package
         run: |
@@ -80,6 +80,8 @@ jobs:
           cp -r PITS95/* README.md LICENSE $name/
           # SDL2 goes with it, so it runs without Homebrew
           dylibbundler -od -b -x $name/puzzle-pits -d $name/libs -p @executable_path/libs/
+          # Homebrew's SDL2 is sdl2-compat, which loads SDL3 from beside it
+          cp "$(brew --prefix sdl3)/lib/libSDL3.0.dylib" $name/libs/
           ditto -c -k --keepParent $name dist/$name.zip
       - uses: actions/upload-artifact@v4
         with:
