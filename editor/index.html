@@ -88,7 +88,9 @@
       <div id="scripterror"></div>
       <details>
         <summary>The script language</summary>
-        <p><code>SWITCHON</code> … what happens when the square is stepped on; <code>SWITCHOFF</code> … when it is left.
+        <p>A script on a square runs when it has a <b>plate</b> (stepped on, then left), a <b>wall with text</b> (walked into) or a <b>switch</b> (flipped).
+        A script named <code>Intro</code> runs as the level starts, <code>Master</code> after every move, and <code>RedGem</code>, <code>GreenGem</code>, <code>BlueGem</code> when that gem is used.</p>
+        <p><code>SWITCHON</code> … what happens when it is switched on (stepped on, flipped on); <code>SWITCHOFF</code> … when off (left, flipped off).
         <code>IF EQ a b</code> (also <code>NE LT GT LE GE</code>, and <code>IF INPUT "word"</code>) … <code>ELSE</code> … <code>ENDIF</code>;
         <code>FOR R0 1 10</code> … <code>NEXT</code>. <code>LET ADD SUB MUL DIV</code> a register and a value;
         <code>PRINT "text"</code>, <code>INPUT "question"</code>; <code>CHANGEMAP x y tile, x y tile</code>; <code>SWAPOVER</code>/<code>SWAPUNDER x1 y1 x2 y2</code>;

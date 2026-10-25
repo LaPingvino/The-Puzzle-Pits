@@ -132,6 +132,10 @@ function paint([x, y]) {
 	} else if (tool.layer === "script") {
 		if (current < 0) { status("Make a script first (+ Script)"); return; }
 		level.pitcode[x][y] = scripts[current].index;
+		// the game runs a square's script only for these (PITS.C CheckStuff, CheckGuy)
+		const o = level.over[x][y], u = level.under[x][y];
+		const runs = u === 58 || u === 59 || (o >= 5 && o <= 8) || (o >= 13 && o <= 20);
+		status(runs ? `${scripts[current].name} on ${x}, ${y}` : `${scripts[current].name} on ${x}, ${y}: it runs only on a plate, a wall with text or a switch, so put one there`);
 	} else { // erase: the object, else the script, else the ground to floor
 		if (level.over[x][y]) level.over[x][y] = 0;
 		else if (level.pitcode[x][y] !== NO_SCRIPT) level.pitcode[x][y] = NO_SCRIPT;

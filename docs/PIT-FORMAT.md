@@ -25,6 +25,16 @@ A script's size is not used when the game plays, except that a size of 0 means i
 - `Master` runs after every move.
 - `RedGem`, `GreenGem` and `BlueGem` run when a gem's power is used.
 
+### When scripts run
+
+A script on a square (the script map) runs only for what is on that square:
+
+- **A plate** (ground 58): switched on when something presses it, and off when it's free again.
+- **A wall with text** (object 5): switched on when the player walks into it.
+- **A switch** (objects 13 and 17): switched on or off as it's flipped.
+
+`Intro` runs once as the level starts, `Master` after every move (switched on, then off), and the gem scripts while their gem is in use. A script tells the two cases apart with `SWITCHON` … `SWITCHOFF` …
+
 ### Strings
 
 A string is a word, its length XOR 22, followed by that many bytes XOR'd with `Mindy` (repeated).
