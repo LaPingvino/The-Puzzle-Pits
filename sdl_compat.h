@@ -33,10 +33,13 @@ extern SDL_Renderer *sdl_renderer;
 extern SDL_Texture *sdl_texture;
 extern SDL_Event sdl_event;
 
-// Video mode functions; setmode named apart from mingw's (io.h, there
-// first so it is not declared again after this)
+// Video mode functions; setmode named apart from mingw's (io.h) and the
+// BSDs' and macOS's (unistd.h), there first so they are not declared again
+// after this
 #ifdef _WIN32
 #include <io.h>
+#else
+#include <unistd.h>
 #endif
 #define setmode pits_setmode
 void setmode(int mode);

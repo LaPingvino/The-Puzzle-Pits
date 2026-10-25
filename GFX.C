@@ -11,7 +11,7 @@
 #include "GFX.H"
 #include <stdio.h>
 #include <string.h>
-#include <malloc.h>
+#include <stdlib.h> // malloc (malloc.h is not everywhere: macOS)
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>

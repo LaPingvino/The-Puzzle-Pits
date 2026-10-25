@@ -67,6 +67,13 @@ static inline void _dos_setvect(int intno, interrupt_handler handler) {
 #define O_BINARY 0
 #endif
 // Video mode functions
+// named apart from the C library's setmode (io.h, unistd.h), included first
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+#define setmode pits_setmode
 static inline void setmode(int mode) {
     if (mode == 0x13) {
         if (!vga_memory_buffer) {

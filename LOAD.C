@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include "compat.h"
 #include <stdlib.h>
-#include <malloc.h>
+#include <stdlib.h> // malloc (malloc.h is not everywhere: macOS)
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
