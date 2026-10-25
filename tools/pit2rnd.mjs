@@ -6,7 +6,7 @@ import zlib from "node:zlib";
 import path from "node:path";
 import { readPit } from "./pit.mjs";
 import { readShapes } from "./tiles.mjs";
-import { rndConvert, rndXsb, rndLevelFile, rndLevelinfo, rndArtwork } from "./rnd.mjs";
+import { rndConvert, rndXsb, rndPitsLevelFile, rndLost, rndLevelinfo, rndArtwork } from "./rnd.mjs";
 
 const root = new URL("../", import.meta.url).pathname;
 const [levelsDir = path.join(root, "PITS95/LEVELS"), out = "the_puzzle_pits"] = process.argv.slice(2);
@@ -33,9 +33,9 @@ const report = [];
 fs.mkdirSync(path.join(out, "graphics"), { recursive: true });
 files.forEach((name, i) => {
 	const level = readPit(new Uint8Array(fs.readFileSync(path.join(levelsDir, name))));
-	const { rows, lost } = rndConvert(level);
+	const { rows } = rndConvert(level), lost = rndLost(level);
 	xsb += `; ${i + 1}\n'${level.title}'\n${rndXsb(rows)}\n\n`;
-	fs.writeFileSync(path.join(out, `${String(i + 1).padStart(3, "0")}.level`), rndLevelFile(level.title, "Abe Pralle", rows));
+	fs.writeFileSync(path.join(out, `${String(i + 1).padStart(3, "0")}.level`), rndPitsLevelFile(level.title, "Abe Pralle", level).bytes);
 	report.push(`${String(i + 1).padStart(2)} ${level.title.padEnd(26)} ${lost.length ? lost.join(", ") : "as in Pits"}`);
 });
 fs.writeFileSync(path.join(out, "levels.xsb"), xsb); // the same levels as Sokoban text, for other Sokoban games
@@ -43,8 +43,10 @@ fs.writeFileSync(path.join(out, "levelinfo.conf"), rndLevelinfo("The Puzzle Pits
 const art = rndArtwork(readShapes(...["TILES1.DAT", "TILES2.DAT", "TILES3.DAT"].map((f) => new Uint8Array(fs.readFileSync(path.join(data, f))))));
 fs.writeFileSync(path.join(out, "graphics", "pits.png"), png(art.width, art.height, art.rgba));
 fs.writeFileSync(path.join(out, "graphics", "graphicsinfo.conf"), art.conf);
-fs.writeFileSync(path.join(out, "README.txt"), `The Puzzle Pits for Rocks'n'Diamonds: Abe Pralle's 1995 levels as Sokoban,
-made by tools/pit2rnd.mjs from https://github.com/LaPingvino/The-Puzzle-Pits.
+fs.writeFileSync(path.join(out, "README.txt"), `The Puzzle Pits for Rocks'n'Diamonds: Abe Pralle's 1995 levels, with Pits'
+own rules as custom elements (coloured targets, arrows, glass, water, lava,
+holes), made by tools/pit2rnd.mjs from https://github.com/LaPingvino/The-Puzzle-Pits.
+levels.xsb has them as plain Sokoban, for other Sokoban games.
 What each level loses against the original:\n\n${report.join("\n")}\n`);
 console.log(report.join("\n"));
 console.log(`\n${out}: ${files.length} levels`);

@@ -84,12 +84,58 @@ const RND_VIEW = 11;
 
 export function rndLevelFile(title, author, lines) {
 	const lw = Math.max(...lines.map((r) => r.length));
+	const left = (Math.max(lw, RND_VIEW) - lw) >> 1;
+	const grid = lines.map((r) => [...("_".repeat(left) + r).replace(/ /g, (m, i) => (i < left ? "_" : m))].map((c) => RND_ELEMENT[c] ?? 62));
+	return levelFile(title, author, grid, [0x09, 1]); // auto-exit Sokoban
+}
+
+// a level with Pits' rules (rndRules, rndCells); rows of Sokoban when its
+// conversion was corrected by hand
+export function rndPitsLevelFile(title, author, level) {
+	const { grid, left } = rndPitsGrid(level);
+	return { bytes: levelFile(title, author, grid, [], rndRules(left ?? 0), [0, 80, 0x11, 1]), scripted: left === null }; // the player keeps the floor it starts on
+}
+
+// the level's rows of elements, as rndPitsLevelFile writes them
+export function rndPitsGrid(level) {
+	const { cells, left } = rndCells(level);
+	// rows of elements, only the part with something in it
+	let grid = Array.from({ length: SIZE }, (_, y) => cells.map((col) => col[y]));
+	const used = (e) => e !== 62;
+	while (grid.length && !grid[0].some(used)) grid.shift();
+	while (grid.length && !grid.at(-1).some(used)) grid.pop();
+	const l = Math.min(...grid.map((r) => r.findIndex(used)).filter((i) => i >= 0));
+	const r = Math.max(...grid.map((row) => row.length - [...row].reverse().findIndex(used)));
+	grid = grid.map((row) => row.slice(l, r));
+	const w = grid[0].length;
+	grid = grid.map((row) => [...Array((Math.max(w, RND_VIEW) - w) >> 1).fill(62), ...row]);
+	// the counter, in a corner of the void
+	if (left !== null) {
+		if (!grid.some((row) => row.includes(62))) grid.push(Array(w).fill(62));
+		const y = grid.findIndex((row) => row.includes(62));
+		grid[y][grid[y].indexOf(62)] = rndCe("counter");
+	}
+	return { grid, left };
+}
+
+// what a level with Pits' rules still loses
+export function rndLost(level) {
+	const lost = new Set();
+	for (let x = 0; x < SIZE; x++) for (let y = 0; y < SIZE; y++) {
+		const o = level.over[x][y], u = level.under[x][y];
+		if (u >= 64 && u <= 66) lost.add("the gems' powers");
+		if (u >= 68 && u <= 70 || u >= 76 && u <= 78) lost.add("keys and locks");
+		if (u === 58 || u === 59 || (o >= 13 && o <= 20) || (o >= 5 && o <= 8)) lost.add("plates, switches and signs (their scripts)");
+	}
+	if (rndCells(level).left === null && level.scripts.some((s) => s.size && disassemble(level.code, s.offset).lines.some((l) => l.trim() === "WIN"))) lost.add("how it's won (its scripts)");
+	return [...lost];
+}
+
+function levelFile(title, author, lines, info, rules = [], elem = []) {
+	const lw = Math.max(...lines.map((r) => r.length));
 	const w = Math.max(lw, RND_VIEW), h = Math.max(lines.length, RND_VIEW);
-	const left = (w - lw) >> 1, top = (h - lines.length) >> 1;
-	const rows = Array.from({ length: h }, (_, y) => {
-		const r = lines[y - top] ?? "";
-		return ("_".repeat(left) + r).padEnd(w, "_").replace(/ /g, (m, i) => (i < left ? "_" : m));
-	});
+	const top = (h - lines.length) >> 1;
+	const rows = Array.from({ length: h }, (_, y) => { const r = lines[y - top] ?? []; return Array.from({ length: w }, (_, x) => r[x] ?? 62); });
 	const parts = [];
 	const latin = (s, n = s.length) => Uint8Array.from({ length: n }, (_, i) => s.charCodeAt(i) & 255 || 0);
 	const chunk = (id, bytes) => {
@@ -104,10 +150,12 @@ export function rndLevelFile(title, author, lines) {
 	chunk("NAME", latin(title.slice(0, 32), 32));
 	chunk("AUTH", latin(author.slice(0, 32), 32));
 	// a type byte (its top bits: 0x00 one byte, 0x40 two) and the value
-	chunk("INFO", [0x01, 1, 0x41, w >> 8, w & 255, 0x42, h >> 8, h & 255, 0x43, 0, 0, 0x44, 0, 0, 0x09, 1]); // RND engine, size, no time limit, no gems, auto-exit Sokoban
+	chunk("INFO", [0x01, 1, 0x41, w >> 8, w & 255, 0x42, h >> 8, h & 255, 0x43, 0, 0, 0x44, 0, 0, ...info]); // RND engine, size, no time limit, no gems
 	const body = new DataView(new ArrayBuffer(w * h * 2));
-	rows.forEach((r, y) => { for (let x = 0; x < w; x++) body.setUint16((y * w + x) * 2, RND_ELEMENT[r[x] ?? "_"] ?? 62); });
+	rows.forEach((r, y) => { for (let x = 0; x < w; x++) body.setUint16((y * w + x) * 2, r[x]); });
 	chunk("BODY", new Uint8Array(body.buffer));
+	if (elem.length) chunk("ELEM", elem);
+	for (const [id, bytes] of rules) chunk(id, bytes);
 	// the player's step is R'n'D's normal one: a square in 8 frames, about
 	// Pits' pace (a step of a whole square would repeat every frame a key is
 	// held, far faster than Pits)
@@ -189,6 +237,16 @@ export function rndArtwork(shapes) {
 		add(`player_1.pushing.${dir}`, [0, 16].map((f) => crop(196 + facing + f)));
 	}
 	add("player_1", [crop(100 + 8)]);
+	// Pits' rules: the grounds (water and lava moving), the boxes on them
+	const picture = (ce) => {
+		if (ce === "start") return [ground(53)];
+		if (ce === "counter") return [(() => { const t = tile(); for (let i = 3; i < t.length; i += 4) t[i] = 255; return t; })()];
+		if (GROUND_TILES[ce] !== undefined) return ce === "water" || ce === "lava" ? [0, 1, 2, 3].map((f) => ground(GROUND_TILES[ce] + f)) : [ground(GROUND_TILES[ce])];
+		const [kind, at] = ce.split("@"), g = at.split(">")[0], o = RND_OBJECTS[kind], under = GROUND_TILES[g];
+		const n = g === o.own ? o.home : g === "water" && o.water ? o.water : (g === "hole" || g === "wood") && o.hole ? o.hole : o.tile;
+		return [kind === "barrel" ? crop(n, under, BARREL_X, BARREL_Y, true) : kind === "crate" ? crop(n, under, 12, 12) : crop(n, under, 14, 14)];
+	};
+	RND_CE_NAMES.forEach((ce, i) => add(`custom_${i + 1}`, picture(ce)));
 	add("sokoban_field_player", [crop(100 + 8, 56)]);
 
 	const width = T * Math.max(...rows.map((r) => r.frames.length)), height = T * rows.length;
@@ -205,12 +263,192 @@ export function rndArtwork(shapes) {
 		"viewport.playfield.x:           14\nviewport.playfield.y:           14\nviewport.playfield.width:       532\nviewport.playfield.height:      532\n\n";
 	rows.forEach((r, j) => {
 		conf += `${pad(r.name + ":", 33)}pits.png\n${pad(r.name + ".xpos:", 33)}0\n${pad(r.name + ".ypos:", 33)}${j}\n${pad(r.name + ".frames:", 33)}${r.frames.length}\n${pad(r.name + ".tile_size:", 33)}${T}\n`;
-		if (r.frames.length > 1) conf += `${pad(r.name + ".delay:", 33)}4\n`;
+		if (r.frames.length > 1) conf += `${pad(r.name + ".delay:", 33)}${r.name.startsWith("custom_") ? 8 : 4}\n`;
 		conf += "\n";
 	});
 	// where each character's picture is, for previews
 	const at = { " ": "empty_space", "#": "steelwall", "_": "invisible_steelwall", "$": "sokoban_object", ".": "sokoban_field_empty", "*": "sokoban_field_full", "@": "player_1", "+": "sokoban_field_player" };
 	for (const { char, n } of Object.values(RND_DECOR)) at[char] = `empty_space_${n}`;
 	const where = Object.fromEntries(Object.entries(at).map(([c, name]) => [c, rows.findIndex((r) => r.name === name) * T]));
+	// and of each element in a level with Pits' rules
+	Object.assign(where, { 0: where[" "], 13: where["#"], 62: where["_"] });
+	RND_CE_NAMES.forEach((ce, i) => (where[EL_CUSTOM_1 + i] = rows.findIndex((r) => r.name === `custom_${i + 1}`) * T));
 	return { width, height, rgba, conf, tile: T, where };
+}
+
+// ---- Pits' own rules, as custom elements (docs/RND-PORT.md)
+//
+// Each ground is a custom element the player walks over (or not: water,
+// lava, holes); a box is one for each ground it can stand on ("barrel on
+// a blue target"), drawn with that ground under it. A box can enter any
+// ground but grass; it leaves its ground behind, and becomes the box on
+// the ground it entered ("digging" it, in R'n'D's words), which can move
+// by itself (arrows), slide (glass), or be gone (lava; a crate in water
+// sinks to a bridge). A counter, hidden in the void, ends the level when
+// every target holds its colour. The player starts on a floor element
+// that turns into the player.
+
+const EP = { DIGGABLE: 0, INDESTRUCTIBLE: 5, CAN_CHANGE: 7, CAN_MOVE: 8, WALKABLE_OVER: 16, PUSHABLE: 24, CAN_MOVE_INTO_ACID: 27 };
+const CE_EV = { DELAY: 0, PRESSED_BY_PLAYER: 2, PUSHED_BY_PLAYER: 3, CHANGE_OF_X: 9, VALUE_GETS_ZERO: 16, BY_OTHER_ACTION: 18, ENTERED_BY_PLAYER: 21, LEFT_BY_PLAYER: 22, DIGGING_X: 36, CREATION_OF_X: 37 };
+const TRIGGERED = new Set([CE_EV.CHANGE_OF_X, CE_EV.CREATION_OF_X]); // what another element does: R'n'D wants "by other action" with it
+const MV = { LEFT: 1, RIGHT: 2, UP: 4, DOWN: 8, ALL: 15, PREVIOUS: 1 << 4, WHEN_PUSHED: 1 << 10 };
+const CA = { EXIT_PLAYER: 1, SET_CE_VALUE: 16 }, CA_MODE = { SET: 1, ADD: 2, SUBTRACT: 3 }, CA_PLAYER_ANY = 10015;
+const EL_PLAYER_1 = 80, EL_CUSTOM_1 = 360, EL_GROUP_1 = 624;
+
+const GROUND_TILES = {
+	floor: 53, mark: 57, plate: 58, red_target: 54, green_target: 55, blue_target: 56,
+	arrow_up: 60, arrow_right: 61, arrow_down: 62, arrow_left: 63, glass: 71, wood: 81, grass: 82,
+	bridge: 79, hole_crate: 80, hole: 83, water: 84, lava: 88,
+	red_gem: 64, green_gem: 65, blue_gem: 66, yellow_gem: 67, red_key: 68, green_key: 69, blue_key: 70,
+	red_lock: 76, green_lock: 77, blue_lock: 78,
+};
+const NOT_WALKABLE = new Set(["hole", "water", "lava"]);
+const RND_OBJECTS = { barrel: { tile: 29, own: "blue_target", home: 33, water: 21, hole: 25 }, crate: { tile: 37, own: "red_target", home: 41 }, chest: { tile: 45, own: "green_target", home: 49 } };
+const ARROWS = { arrow_up: MV.UP, arrow_right: MV.RIGHT, arrow_down: MV.DOWN, arrow_left: MV.LEFT };
+
+// a box entering a ground: the ground it leaves there if the box is gone,
+// or null: it can't go there (else it stays, as the box on that ground)
+function boxGone(kind, ground) {
+	if (kind === "crate" && ground === "water") return "bridge";
+	if (ground === "lava") return kind === "chest" ? "glass" : "lava";
+	if (kind !== "barrel" && ground === "hole") return "hole";
+	if (kind === "crate" && ground === "wood") return "hole";
+	return null;
+}
+const canEnter = (kind, ground) => ground !== "grass";
+// and on glass, sliding on the way it came (glass>right): R'n'D's change
+// knows the side a box came in by, not its direction once it is changed
+const SLIDES = { 1: "right", 2: "left", 4: "down", 8: "up" }; // the side it came in by: the way it goes
+const BOXES = Object.keys(RND_OBJECTS).flatMap((k) => [...Object.keys(GROUND_TILES).filter((g) => canEnter(k, g) && !boxGone(k, g)), ...Object.values(SLIDES).map((d) => `glass>${d}`)].map((g) => `${k}@${g}`));
+
+// custom_1, custom_2 ... in this order, the same in every level, so one
+// artwork set draws them all
+export const RND_CE_NAMES = [...Object.keys(GROUND_TILES), "start", ...BOXES, "counter"];
+export const rndCe = (name) => EL_CUSTOM_1 + RND_CE_NAMES.indexOf(name);
+// groups of elements, at most 16 each (more are split into groups of groups)
+const GROUP_LIST = [];
+function defineGroup(name, members) {
+	if (members.length <= 16) { GROUP_LIST.push([name, members]); return; }
+	const parts = [];
+	for (let i = 0; i < members.length; i += 16) { parts.push(`${name}#${i / 16}`); defineGroup(parts.at(-1), members.slice(i, i + 16)); }
+	GROUP_LIST.push([name, parts.map((p) => ({ group: p }))]);
+}
+defineGroup("boxes_home", Object.entries(RND_OBJECTS).map(([k, o]) => `${k}@${o.own}`));
+for (const k of Object.keys(RND_OBJECTS)) defineGroup(`enter_${k}`, [...Object.keys(GROUND_TILES), "start"].filter((g) => canEnter(k, g)));
+const rndGroup = (name) => EL_GROUP_1 + GROUP_LIST.findIndex(([n]) => n === name);
+
+// the typed values R'n'D's level files keep (files.c: chunk_config_CUSX_*)
+function micro(out, conf, value, size) {
+	out.push(conf);
+	if (size === 1) out.push(value & 255);
+	else if (size === 2) out.push((value >> 8) & 255, value & 255);
+	else out.push((value >>> 24) & 255, (value >> 16) & 255, (value >> 8) & 255, value & 255);
+}
+function customChunk(el, d) {
+	const out = [el >> 8, el & 255];
+	micro(out, 0x81, (d.props ?? []).reduce((a, p) => a | (1 << EP[p]), 1 << EP.CAN_MOVE_INTO_ACID) >>> 0, 4);
+	if (d.moveEnter !== undefined) micro(out, 0x4c, d.moveEnter, 2);
+	if (d.moveLeave !== undefined) micro(out, 0x4d, d.moveLeave, 2);
+	if (d.movePattern !== undefined) micro(out, 0x83, d.movePattern, 4);
+	if (d.moveDir !== undefined) micro(out, 0x04, d.moveDir, 1);
+	if (d.moveDelay !== undefined) micro(out, 0x4a, d.moveDelay, 2);
+	micro(out, 0x46, 0, 2); // pushed at once, as in Pits
+	micro(out, 0x47, 0, 2);
+	if (d.value !== undefined) micro(out, 0x44, d.value, 2);
+	const pages = d.pages ?? [];
+	micro(out, 0x09, Math.max(1, pages.length), 1); // the last of the element's own values
+	if (!pages.length) micro(out, 0x01, 0, 1); // R'n'D reads a first page all the same
+	pages.forEach((p, i) => {
+		micro(out, 0x01, i, 1);
+		const bits = [0, 0];
+		for (const e of [...p.events, ...(p.events.some((e) => TRIGGERED.has(e)) ? [CE_EV.BY_OTHER_ACTION] : [])]) bits[e >> 5] |= 1 << (e & 31);
+		micro(out, 0x81, bits[0] >>> 0, 4);
+		if (bits[1]) micro(out, 0x82, bits[1] >>> 0, 4);
+		micro(out, 0x02, p.target !== undefined ? 1 : 0, 1);
+		if (p.target !== undefined) micro(out, 0x41, p.target, 2);
+		if (p.trigger !== undefined) micro(out, 0x45, p.trigger, 2);
+		if (p.side !== undefined) micro(out, 0x04, p.side, 1);
+		if (p.delay !== undefined) micro(out, 0x44, p.delay, 2); // in frames
+		if (p.action) {
+			micro(out, 0x0c, 1, 1);
+			micro(out, 0x0d, p.action.type, 1);
+			micro(out, 0x0e, p.action.mode ?? 0, 1);
+			micro(out, 0x46, p.action.arg ?? 0, 2);
+		}
+	});
+	return out;
+}
+function groupChunk(el, members) {
+	const out = [el >> 8, el & 255, 0xc2, (members.length * 2) >> 8, (members.length * 2) & 255];
+	for (const m of members) out.push(m >> 8, m & 255);
+	return out;
+}
+
+// the chunks for a level with `left` targets still to fill
+export function rndRules(left) {
+	const chunks = [];
+	const custom = (name, d) => chunks.push(["CUSX", customChunk(rndCe(name), d)]);
+	for (const g of Object.keys(GROUND_TILES)) custom(g, { props: NOT_WALKABLE.has(g) ? [] : ["WALKABLE_OVER"] }); // not indestructible: a box couldn't enter it
+	// the start: a floor that turns into the player once (kept under them,
+	// it would turn again at every delay; its value falls to 0 only once)
+	custom("start", { props: ["WALKABLE_OVER", "CAN_CHANGE"], value: 1, pages: [
+		{ events: [CE_EV.DELAY], delay: 1, action: { type: CA.SET_CE_VALUE, mode: CA_MODE.SET, arg: 0 } },
+		{ events: [CE_EV.VALUE_GETS_ZERO], target: EL_PLAYER_1 },
+	] });
+	for (const name of BOXES) {
+		const [kind, ground] = name.split("@");
+		const [base, slide] = ground.split(">");
+		const d = { props: ["PUSHABLE", "CAN_CHANGE"], moveEnter: rndGroup(`enter_${kind}`), moveLeave: rndCe(base), pages: [] };
+		const way = ARROWS[base] ?? (slide && MV[slide.toUpperCase()]);
+		if (way) { Object.assign(d, { movePattern: way, moveDir: way, moveDelay: 0 }); d.props.push("CAN_MOVE"); }
+		for (const g of [...Object.keys(GROUND_TILES), "start"]) {
+			if (!canEnter(kind, g === "start" ? "floor" : g)) continue;
+			const sides = g === "glass" ? Object.entries(SLIDES) : [[undefined]];
+			for (const [side, to] of sides) {
+				const state = boxGone(kind, g) ?? `${kind}@${g === "start" ? "floor" : g}${to ? ">" + to : ""}`;
+				if (state !== name) d.pages.push({ events: [CE_EV.DIGGING_X], trigger: rndCe(g), side: side && +side, target: rndCe(state) });
+			}
+		}
+		custom(name, d);
+	}
+	// down when a box comes home, up when one leaves; at none, won
+	custom("counter", {
+		props: ["INDESTRUCTIBLE", "CAN_CHANGE"], value: left, pages: [
+			{ events: [CE_EV.CREATION_OF_X], trigger: rndGroup("boxes_home"), action: { type: CA.SET_CE_VALUE, mode: CA_MODE.SUBTRACT, arg: 1 } },
+			{ events: [CE_EV.CHANGE_OF_X], trigger: rndGroup("boxes_home"), action: { type: CA.SET_CE_VALUE, mode: CA_MODE.ADD, arg: 1 } },
+			{ events: [CE_EV.VALUE_GETS_ZERO], action: { type: CA.EXIT_PLAYER, arg: CA_PLAYER_ANY } },
+		],
+	});
+	for (const [name, members] of GROUP_LIST) chunks.push(["GRPX", groupChunk(rndGroup(name), members.map((m) => (m.group ? rndGroup(m.group) : rndCe(m))))]);
+	return chunks;
+}
+
+// a level's squares as these elements: the grid (x, y), and how many
+// targets are still to fill (no targets: null, it's won by its scripts)
+const KIND_OF = { 29: "barrel", 33: "barrel", 21: "barrel", 25: "barrel", 37: "crate", 41: "crate", 45: "chest", 49: "chest" };
+export function rndCells(level) {
+	const name = Object.fromEntries(Object.entries(GROUND_TILES).map(([g, t]) => [t, g]));
+	Object.assign(name, { 59: "plate", 92: "lava", 96: "lava" });
+	const cells = [];
+	let targets = 0, home = 0;
+	for (let x = 0; x < SIZE; x++) {
+		cells.push([]);
+		for (let y = 0; y < SIZE; y++) {
+			let o = level.over[x][y];
+			const u = level.under[x][y];
+			if (o > 0 && o < 100) o -= (o - 1) % 4;
+			const g = name[u];
+			if (g?.endsWith("_target")) targets++;
+			let e;
+			if (o === 100) e = rndCe("start");
+			else if ([1, 5, 9, 13, 17].includes(o)) e = 13; // steel wall
+			else if (KIND_OF[o] && g && BOXES.includes(`${KIND_OF[o]}@${g}`)) {
+				e = rndCe(`${KIND_OF[o]}@${g}`);
+				if (g === RND_OBJECTS[KIND_OF[o]].own) home++;
+			} else if (g) e = rndCe(g);
+			else e = 62; // the void
+			cells[x].push(e);
+		}
+	}
+	return { cells, left: targets ? targets - home : null };
 }

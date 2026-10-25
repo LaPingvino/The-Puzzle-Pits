@@ -5,7 +5,7 @@
 
 import { readPit, writePit, disassemble, assemble, SIZE } from "../tools/pit.mjs";
 import { readShapes, drawSquare, blit, TILE } from "../tools/tiles.mjs";
-import { rndConvert, rndXsb, rndLevelFile, rndLevelinfo, rndArtwork } from "../tools/rnd.mjs";
+import { rndConvert, rndXsb, rndLevelFile, rndPitsLevelFile, rndPitsGrid, rndLost, rndLevelinfo, rndArtwork, rndCe } from "../tools/rnd.mjs";
 
 const $ = (id) => document.getElementById(id);
 const bytesOf = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -369,12 +369,24 @@ function showRnd(fresh) {
 	const auto = rndConvert(level);
 	const rows = rndRows ?? auto.rows;
 	if (fresh || (rndRows === null && document.activeElement !== $("rndrows"))) $("rndrows").value = rows.join("\n");
-	$("rndlost").textContent = (rndRows !== null ? "Corrected by hand. " : "") + (auto.lost.length ? "Not in R'n'D: " + auto.lost.join(", ") + "." : "Plays as in Pits.");
-	const S = 24, w = Math.max(1, ...rows.map((r) => r.length)), view = $("rndview"), g = view.getContext("2d");
+	const lost = rndRows !== null ? auto.lost : rndLost(level);
+	$("rndlost").textContent = (rndRows !== null ? "Corrected by hand: plays as plain Sokoban. " : "With Pits' rules. ") + (lost.length ? "Not in R'n'D: " + lost.join(", ") + "." : "Plays as in Pits.");
+	const S = 24, view = $("rndview"), g = view.getContext("2d"), T = rndArt.tile;
+	g.imageSmoothingEnabled = false;
+	if (rndRows === null) { // as R'n'D will draw it, element by element
+		const { grid } = rndPitsGrid(level), w = Math.max(...grid.map((r) => r.length));
+		view.width = w * S;
+		view.height = grid.length * S;
+		grid.forEach((r, y) => r.forEach((e, x) => {
+			if (e !== 62) g.drawImage(rndSheet, 0, rndArt.where[0], T, T, x * S, y * S, S, S); // the ground under it
+			g.drawImage(rndSheet, 0, rndArt.where[e] ?? rndArt.where[62], T, T, x * S, y * S, S, S);
+			if (e === rndCe("start")) g.drawImage(rndSheet, 0, rndArt.where["@"], T, T, x * S, y * S, S, S); // the player starts here
+		}));
+		return;
+	}
+	const w = Math.max(1, ...rows.map((r) => r.length));
 	view.width = w * S;
 	view.height = Math.max(1, rows.length) * S;
-	g.imageSmoothingEnabled = false;
-	const T = rndArt.tile;
 	rows.forEach((r, y) => [...r.padEnd(w, "_")].forEach((c, x) => {
 		if (c !== "_") g.drawImage(rndSheet, 0, rndArt.where[" "], T, T, x * S, y * S, S, S); // the ground under it
 		const at = rndArt.where[c];
@@ -395,7 +407,7 @@ $("rndsave").addEventListener("click", async () => {
 	let xsb = `; ${name}\n\n`;
 	entries.forEach(({ level: lv, rnd }, k) => {
 		const rows = rnd ?? rndConvert(lv).rows;
-		files.push({ name: `${folder}/${String(k + 1).padStart(3, "0")}.level`, bytes: rndLevelFile(lv.title, author, rows) });
+		files.push({ name: `${folder}/${String(k + 1).padStart(3, "0")}.level`, bytes: rnd ? rndLevelFile(lv.title, author, rows) : rndPitsLevelFile(lv.title, author, lv).bytes });
 		xsb += `; ${k + 1}\n'${lv.title}'\n${rndXsb(rows)}\n\n`;
 	});
 	const png = new Uint8Array(await (await new Promise((ok) => rndSheet.toBlob(ok, "image/png"))).arrayBuffer());
