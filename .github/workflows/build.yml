@@ -134,6 +134,10 @@ jobs:
           merge-multiple: true
       # the level editor as one file, to use offline; Play opens the game online
       - run: node tools/build-editor.mjs dist/puzzle-pits-editor.html https://lapingvino.github.io/The-Puzzle-Pits/
+      # the levels as a Rocks'n'Diamonds level set (Sokoban, the game's pictures)
+      - run: |
+          node tools/pit2rnd.mjs PITS95/LEVELS the_puzzle_pits
+          zip -qr "dist/puzzle-pits-${GITHUB_REF_NAME#v}-rocksndiamonds.zip" the_puzzle_pits
       - env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "The Puzzle Pits $GITHUB_REF_NAME" --generate-notes

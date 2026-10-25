@@ -26,6 +26,10 @@ As in Rocks'n'Diamonds, levels come in packs. Abe's forty are the first; any oth
 
 The level format and the script language are described in [docs/PIT-FORMAT.md](docs/PIT-FORMAT.md); `node tools/pit_test.mjs` checks that every one of Abe's levels reads and writes back byte for byte. `node tools/build-editor.mjs editor.html` builds the editor.
 
+## Rocks'n'Diamonds
+
+Pits is a Sokoban variant, so its levels also play in [Rocks'n'Diamonds](https://www.artsoft.org/rocksndiamonds/) as a Sokoban level set, drawn with the game's own pictures: `node tools/pit2rnd.mjs PITS95/LEVELS the_puzzle_pits`, then put the folder in `~/.rocksndiamonds/levels` (each release has it zipped). Barrels, crates and chests become Sokoban's boxes and the coloured targets its goals. Water, lava and holes become walls, and keys, arrows, gems and the stories are left out. The set's README.txt says what each level loses; levels 2, 3, 9, 15, 20 and 37 are exactly as in Pits.
+
 ## Build
 
 You need [Zig](https://ziglang.org) 0.17 and SDL2's development files:
