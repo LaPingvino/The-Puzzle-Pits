@@ -3,7 +3,7 @@
 //
 // Pits is Sokoban with more to it, so the levels become Rocks'n'Diamonds'
 // Sokoban levels (one .xsb file): walls, barrels, crates and chests as
-// boxes, the red, green and blue targets as goals, and the player. What
+// boxes, goals where the level is won (docs/RND-PORT.md), and the player. What
 // Sokoban has no place for is approximated, and reported for each level:
 // water, lava, holes and the void become walls (the player can't go there
 // in Pits either, but objects could be pushed in), and keys, locks,
@@ -12,7 +12,7 @@
 import fs from "node:fs";
 import zlib from "node:zlib";
 import path from "node:path";
-import { readPit, SIZE } from "./pit.mjs";
+import { readPit, disassemble, SIZE } from "./pit.mjs";
 import { readShapes, blit } from "./tiles.mjs";
 
 const root = new URL("../", import.meta.url).pathname;
@@ -31,25 +31,49 @@ const KINDS = { 29: "barrel", 33: "barrel", 37: "crate", 41: "crate", 45: "chest
 
 // ground with no part in a Sokoban level, shown as it is: R'n'D's
 // decorative empty spaces (EL_EMPTY_SPACE_1 is 1217, src/conf_emp.h)
-const DECOR = { 57: { char: "m", n: 1 }, 58: { char: "p", n: 2 }, 82: { char: "g", n: 3 } };
+const DECOR = { 57: { char: "m", n: 1 }, 58: { char: "p", n: 2 }, 82: { char: "g", n: 3 }, 54: { char: "r", n: 4 }, 55: { char: "e", n: 5 }, 56: { char: "b", n: 6 } };
+
+// where the level is won: Master scripts that win when boxes stand on
+// given squares (IF EQ OVER(x, y) box ... WIN, nothing else) name them;
+// the coloured targets are often elsewhere then, only a hint
+function winSpots(level) {
+	const master = level.scripts.find((s) => s.name === "Master" && s.size);
+	if (!master) return null;
+	const stack = [];
+	for (const line of disassemble(level.code, master.offset).lines) {
+		const indent = line.search(/\S/), text = line.trim();
+		while (stack.length && stack.at(-1).indent >= indent) stack.pop();
+		if (text === "WIN") {
+			const conds = stack.filter((e) => e.text !== "SWITCHON");
+			const spots = conds.map((e) => /^IF EQ OVER\((\d+), (\d+)\) (29|33|37|41|45|49)$/.exec(e.text));
+			if (conds.length && spots.every(Boolean)) return new Set(spots.map((m) => `${m[1]},${m[2]}`));
+			return null;
+		}
+		stack.push({ indent, text });
+	}
+	return null;
+}
 
 function toXsb(level) {
 	const lost = new Set();
+	const spots = winSpots(level);
+	if (!spots && level.scripts.some((s) => s.size && disassemble(level.code, s.offset).lines.some((l) => l.trim() === "WIN"))) lost.add("how it's won (its scripts)");
 	const grid = [];
 	for (let y = 1; y < SIZE - 1; y++) {
 		let row = "";
 		for (let x = 1; x < SIZE - 1; x++) {
 			let o = level.over[x][y], u = level.under[x][y];
 			if (o > 0 && o < PLAYER) o -= (o - 1) % 4; // the first of its four
-			const goal = GOALS.has(u);
+			const goal = spots ? spots.has(`${x},${y}`) : GOALS.has(u);
 			let c;
 			if (o === PLAYER) c = goal ? "+" : "@";
-			else if (FULL.has(o)) c = "*";
+			else if (FULL.has(o)) c = !spots || goal ? "*" : "$";
 			else if (BOXES.has(o)) c = goal ? "*" : "$";
 			else if (WALLS.has(o)) c = "#";
 			else if (u === 0) c = "_";
 			else if (BLOCKED.has(u)) { c = "#"; lost.add({ 83: "holes", 84: "water", 88: "lava", 92: "lava", 96: "lava" }[u]); }
 			else c = goal ? "." : DECOR[u === 59 ? 58 : u]?.char ?? " ";
+			if (spots && GOALS.has(u) && c === " ") c = DECOR[u].char;
 			if (o === 21 || o === 25) lost.add("barrels in water or holes");
 			if (u >= 60 && u <= 63) lost.add("arrows");
 			if (u >= 64 && u <= 67) lost.add("gems");
@@ -216,7 +240,7 @@ const report = [], native = [];
 files.forEach((name, i) => {
 	const level = readPit(new Uint8Array(fs.readFileSync(path.join(levelsDir, name))));
 	const { rows: r, lost } = toXsb(level);
-	xsb += `; ${i + 1}\n'${level.title}'\n${r.map((l) => l.replace(/[mpg]/g, " ")).join("\n")}\n\n`;
+	xsb += `; ${i + 1}\n'${level.title}'\n${r.map((l) => l.replace(/[mpgreb]/g, " ")).join("\n")}\n\n`;
 	native.push(rndLevel(level.title, "Abe Pralle", r));
 	report.push(`${String(i + 1).padStart(2)} ${level.title.padEnd(26)} ${lost.length ? lost.join(", ") : "as in Pits"}`);
 });
