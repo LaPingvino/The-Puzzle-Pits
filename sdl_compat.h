@@ -53,6 +53,8 @@ uint16_t initmouse(void);
 uint16_t readmbutton(void);
 void relpos(int16_t *x, int16_t *y);
 void warpmouse(int x, int y);
+int progress_get(char *level);
+void progress_reached(const char *level);
 
 // Keyboard functions
 void setkb(void);

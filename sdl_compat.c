@@ -638,3 +638,67 @@ void dig_Kill(void) {
         audio = 0;
     }
 }
+
+// Progress: the furthest level reached, kept between games (Resume and
+// Choose Level on the title screen): in a file in the user's data folder
+// (PITS_PROGRESS=file instead, for testing), or the page's storage in a
+// browser
+
+// level_number is the number a level's name ends with (Level05: 5).
+static int level_number(const char *name) {
+    int n = 0, i = strlen(name);
+    while (i > 0 && name[i - 1] >= '0' && name[i - 1] <= '9') {
+        i--;
+    }
+    for (; name[i]; i++) {
+        n = n * 10 + name[i] - '0';
+    }
+    return n;
+}
+
+static void progress_file(char *path, size_t n) {
+    const char *test = getenv("PITS_PROGRESS");
+    char *pref = test ? NULL : SDL_GetPrefPath("PlasmaWorks", "PuzzlePits");
+    snprintf(path, n, "%s%s", test ? test : pref ? pref : "", test ? "" : "progress.txt");
+    SDL_free(pref);
+}
+
+// progress_get puts the furthest level reached in level (16 bytes) and
+// returns its number, or 0 if none yet.
+int progress_get(char *level) {
+    level[0] = 0;
+#ifdef __EMSCRIPTEN__
+    char *saved = emscripten_run_script_string("localStorage.getItem('puzzle-pits-level') || ''");
+    snprintf(level, 16, "%s", saved);
+#else
+    char path[1024];
+    progress_file(path, sizeof path);
+    FILE *f = fopen(path, "r");
+    if (f) {
+        if (fscanf(f, "%15s", level) != 1) {
+            level[0] = 0;
+        }
+        fclose(f);
+    }
+#endif
+    return level[0] ? level_number(level) : 0;
+}
+
+// progress_reached keeps level as the furthest reached, if it is further.
+void progress_reached(const char *level) {
+    char saved[16];
+    if (level_number(level) <= progress_get(saved)) {
+        return;
+    }
+#ifdef __EMSCRIPTEN__
+    EM_ASM({ try { localStorage.setItem('puzzle-pits-level', UTF8ToString($0)); } catch (e) {} }, level);
+#else
+    char path[1024];
+    progress_file(path, sizeof path);
+    FILE *f = fopen(path, "w");
+    if (f) {
+        fprintf(f, "%s\n", level);
+        fclose(f);
+    }
+#endif
+}

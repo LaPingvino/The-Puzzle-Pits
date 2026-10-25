@@ -110,6 +110,8 @@ static inline uint16_t readmbutton(void) {
 }
 
 static inline void warpmouse(int x, int y) { (void)x; (void)y; }
+static inline int progress_get(char *level) { level[0] = 0; return 0; }
+static inline void progress_reached(const char *level) { (void)level; }
 static inline void relpos(int16_t *x, int16_t *y) {
     *x = 0;
     *y = 0;

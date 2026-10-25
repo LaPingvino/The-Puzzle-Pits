@@ -77,6 +77,10 @@ int main()
   WORD choice,menuitem,oldmenuitem,notdone,x;
   FILE *fp;
   char fname[40],password[40];
+  char saved[16],line[40];
+  extern char *logical;
+  static unsigned char menubg[48][192];
+  WORD reached,chosen=0,entries[5],n,top,y;
   char firstlvl[]={'L'-6,'e'-8,'v'-10,'e'-12,'l'-14,'0'-16,'1'-18,0};
 
   // Initialize SDL compatibility layer
@@ -108,9 +112,16 @@ int main()
     ChangeMouse(BLANKPOINTER);
     LoadScreen(1);
     SetPalette(3);
-    ShadowText(141,148,"Enter Level Password",20,16);
-    ShadowText(141,156,"Start New Game",14,1);
-    ShadowText(141,164,"Quit",4,1);
+    /* the menu: Resume and Choose Level once a level has been reached,
+       above Abe's three; the title picture behind the lines above his is
+       kept, to draw them again on it */
+    reached=progress_get(saved);
+    if(chosen<1 || chosen>reached) chosen=reached;
+    n=0;
+    if(reached){ entries[n++]=3; entries[n++]=4; }
+    entries[n++]=0; entries[n++]=1; entries[n++]=2;
+    top=172-8*n;
+    for(y=0;y<148-top;y++) memcpy(menubg[y],logical+(top+y)*320+128,192);
     FadeIn();
     CheckMouse();
     inkey=0xff;
@@ -121,29 +132,47 @@ int main()
       OwnBlit();
       Blit(LOGIC,128,148,TITLETEXTBG);
       DisownBlit();
-      ShadowText(141,148,"Enter Level Password",20,menuitem==0?16:1);
-      ShadowText(141,156,"Start New Game",14,menuitem==1?16:1);
-      ShadowText(141,164,"Quit",4,menuitem==2?16:1);
+      for(y=0;y<148-top;y++) memcpy(logical+(top+y)*320+128,menubg[y],192);
+      for(x=0;x<n;x++){
+        switch(entries[x]){
+          case 0: strcpy(line,"Enter Level Password"); break;
+          case 1: strcpy(line,"Start New Game"); break;
+          case 2: strcpy(line,"Quit"); break;
+          case 3: sprintf(line,"Resume %s",saved); break;
+          case 4: sprintf(line,"Choose Level  < %02d >",chosen); break;
+        }
+        ShadowText(141,top+8*x,line,strlen(line),menuitem==x?16:1);
+      }
       ScreenSwap();
       if(choice>=0) notdone=0;
       oldmenuitem=menuitem;
       while(oldmenuitem==menuitem && notdone){
         CheckMouse();
         switch(inkey){
-          case 13:  choice=menuitem; oldmenuitem=-1; break;
+          case 13:  choice=entries[menuitem]; oldmenuitem=-1; break;
           case 28:
             inkey=0xff;
             menuitem--;
-            if(menuitem<0) menuitem=2;
+            if(menuitem<0) menuitem=n-1;
             break;
           case 29:
             inkey=0xff;
             menuitem++;
-            if(menuitem>2) menuitem=0;
+            if(menuitem>n-1) menuitem=0;
             break;
-          case 'e':  menuitem=0; oldmenuitem=-1; choice=0; break;
-          case 's':  menuitem=1; oldmenuitem=-1; choice=1; break;
-          case 'q':  menuitem=2; oldmenuitem=-1; choice=2; break;
+          case 30:  /* right, left: the level to choose */
+          case 31:
+            if(entries[menuitem]==4){
+              chosen+=inkey==30?1:-1;
+              if(chosen<1) chosen=reached;
+              if(chosen>reached) chosen=1;
+              oldmenuitem=-1;
+            }
+            inkey=0xff;
+            break;
+          case 'e':  choice=0; oldmenuitem=-1; break;
+          case 's':  choice=1; oldmenuitem=-1; break;
+          case 'q':  choice=2; oldmenuitem=-1; break;
         }
       }
     }
@@ -201,8 +230,12 @@ int main()
           FadeIn();
         }
         break;
+      case 3:  /* Resume */
+      case 4:  /* Choose Level */
       case 1:
-        strcpy(gamevars.level,firstlvl);
+        if(choice==1) strcpy(gamevars.level,firstlvl);
+        else if(choice==3) strcpy(gamevars.level,saved);
+        else sprintf(gamevars.level,"Level%02d",chosen);
         Clear(LOGIC);
         FadeIn();
         SetPalette(1);
@@ -879,7 +912,7 @@ void PrintText(CodePtr *pos,WORD len,WORD input)
       }
       input_line[x]=0;  //null terminate string
       strcpy(scanbuffer,input_line);
-      sscanf(scanbuffer,"%d",&regs[REG_INPUTVALUE-201]);
+      sscanf(scanbuffer,"%hd",&regs[REG_INPUTVALUE-201]);  /* a WORD: 16 bits (%d wrote 32, over the next register) */
       //SetMousePos(oldx,oldy);  //Restore mouse as favor to keyboard users
     }else{
       inkey=0xff;
@@ -1067,6 +1100,7 @@ WORD GameLoadLevel(void)
   DrawSideBar();
   copysidebar=1;
   ProcessLevel();
+  progress_reached(gamevars.level);  /* for Resume and Choose Level */
   return 1;
 }
 

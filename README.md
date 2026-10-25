@@ -14,7 +14,7 @@ the [releases](https://github.com/LaPingvino/The-Puzzle-Pits/releases) have it f
 - **Windows:** SDL2 comes with the game.
 - **macOS:** SDL2 comes with the game. The first time, open it with right-click > Open, because it isn't signed.
 
-The arrow keys or the mouse move you; Enter or a click goes on. The F keys use what you carry, as shown beside them. F11 or Alt+Enter switches to full screen. The game's own instructions are in PITS95/readme.txt.
+The game remembers the furthest level you reached: **Resume** on the title screen starts there, and **Choose Level** (Left and Right) any level before it. The arrow keys or the mouse move you; Enter or a click goes on. The F keys use what you carry, as shown beside them. F11 or Alt+Enter switches to full screen. The game's own instructions are in PITS95/readme.txt.
 
 ## Build
 
