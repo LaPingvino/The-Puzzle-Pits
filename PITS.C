@@ -113,15 +113,16 @@ int main()
     LoadScreen(1);
     SetPalette(3);
     /* the menu: Resume and Choose Level once a level has been reached,
-       above Abe's three; the title picture behind the lines above his is
-       kept, to draw them again on it */
+       above Abe's three, from where his starts down (the copyright is
+       below at 193); the title picture behind it all is kept, to draw
+       the lines again on it */
     reached=progress_get(saved);
     if(chosen<1 || chosen>reached) chosen=reached;
     n=0;
     if(reached){ entries[n++]=3; entries[n++]=4; }
     entries[n++]=0; entries[n++]=1; entries[n++]=2;
-    top=172-8*n;
-    for(y=0;y<148-top;y++) memcpy(menubg[y],logical+(top+y)*320+128,192);
+    top=148;
+    for(y=0;y<8*n+2;y++) memcpy(menubg[y],logical+(top-8+y)*320+128,192);
     FadeIn();
     CheckMouse();
     inkey=0xff;
@@ -132,7 +133,7 @@ int main()
       OwnBlit();
       Blit(LOGIC,128,148,TITLETEXTBG);
       DisownBlit();
-      for(y=0;y<148-top;y++) memcpy(logical+(top+y)*320+128,menubg[y],192);
+      for(y=0;y<8*n+2;y++) memcpy(logical+(top-8+y)*320+128,menubg[y],192);
       for(x=0;x<n;x++){
         switch(entries[x]){
           case 0: strcpy(line,"Enter Level Password"); break;
