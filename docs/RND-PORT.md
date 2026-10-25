@@ -1,94 +1,40 @@
 # The Puzzle Pits in Rocks'n'Diamonds
 
-`tools/rnd.mjs` turns a level into a Rocks'n'Diamonds level: `tools/pit2rnd.mjs` makes Abe's forty into a level set, and the level editor shows any level converted, lets the conversion be corrected by hand, and downloads it (or a whole pack) for R'n'D. This is what the levels need, and what R'n'D can do about it.
+`tools/rnd.mjs` turns a level into a Rocks'n'Diamonds level that plays by Pits' own rules, made of R'n'D's custom elements and written into each level file. `tools/pit2rnd.mjs` makes Abe's forty into a level set; the level editor previews any level as R'n'D will draw it and downloads it, or a whole pack, for R'n'D. Nothing in R'n'D itself is changed: the set plays in R'n'D 4.4.2.4 as it is.
 
 ## How Pits is won
 
-A level is won when **every coloured target holds its own colour**: a crate on a red target, a chest on a green one, a barrel on a blue one (`CheckLevelDone` in PITS.C). That is each level's own answer, and what the conversion keeps: the targets are the goals.
+A level is won when **every coloured target holds its own colour**: a crate on a red target, a chest on a green one, a barrel on a blue one (`CheckLevelDone` in PITS.C). A script can win a level too, but mostly the scripts tell the story, give hints or offer a second way; five levels have no targets and are won by their scripts alone (22, 24, 25, 29, 33).
 
-A script can win the level too, and most of what the scripts do is a second way to the answer, a hint, or the story. Only five levels have no targets and are won by their scripts alone: 22, 24, 25, 29 and 33.
+## How it's made
 
-## The rules built into Pits
+R'n'D keeps one element a square, so each pair Pits has on a square (a ground, and what stands on it) is an element of its own.
 
-These are what each level's answer is made of, and what has to work in R'n'D. R'n'D keeps one element a square, so Pits' two layers (the ground, and what stands on it) become one element for each pair that can happen: a custom element (CE) for "a crate on a down arrow", and so on.
+- **Grounds** (floor, targets, arrows, glass, water, lava, holes, grass, gems, keys...) are elements the player walks over; water, lava and holes they don't.
+- **Boxes**: one element for each kind on each ground it can stand on ("a barrel on a blue target"), drawn on that ground. A box can enter any ground but grass; it leaves its ground behind and becomes the box on the ground it entered (R'n'D's "digging" event names it). So it is home on its own colour of target, carried by arrows (it moves by itself), sliding on glass (an element for each side it came in by, as a changed element forgets its direction), afloat in water, stuck in a hole, or gone: a crate in water sinks to a bridge, a barrel or crate burns in lava, a chest leaves glass there.
+- **The win**: a counter, hidden in the void above the pit, starts at the targets still to fill; it counts down when a box comes home ("creation of" those elements), up when one leaves ("change of"), and at none the player exits.
+- **The player** starts on a floor element that turns into them once (R'n'D keeps a walkable element under a player made from it).
+- **Gems and keys** are collected by walking over them. The gems are used by clicking their buttons, in a row above the pit as in Pits' panel; a button is an element for each count up to 8, as a change can't look at a value.
+  - **Red**: the floor and arrows are armed, and the one the player leaves becomes an arrow the way they went.
+  - **Blue**: the floor is armed, and the one left becomes a magnet for a moment; a box on the floor behind it moves onto it.
+  - **Green**: walls, water, lava and holes become ones the player can walk through, until the button is clicked again. A ghost still inside one then can step out.
 
-| Pits | Levels | In R'n'D |
-|---|---|---|
-| Barrel, crate and chest, each on its own colour of target | most | a CE each, one for each on its target; won when all are (the level's gems count, the exit opens at none) |
-| Arrows: what stands on one moves a square each turn, not onto grass | 7, 10–12, 14, 16, 22, 23, 26, 27, 30, 33, 39 | an object-on-arrow CE for each direction, moving by itself and leaving the arrow behind |
-| Glass: what is pushed onto it slides on | 17, 19, 33 | an object-on-glass CE, moving on in the direction it was pushed |
-| Water: a crate sinks to a bridge, a barrel floats and can be pushed off | 6, 7, 10, 12, 13, 18, 19, 21, 22, 27, 29, 30, 31, 34, 35, 38, 40 | the crate enters water and leaves a bridge; a barrel-in-water CE |
-| Lava: a barrel or crate burns up, a chest leaves glass | 31, 32, 40 | the box enters lava and is gone; the chest leaves glass |
-| Holes and wood: a barrel sticks, a crate fills a hole or breaks wood | 25, 30, 32 | as water |
-| A chest pushed against what it can't enter breaks, leaving glass | the chest levels | the chest changes when the player pushes it and it can't move |
-| Grass: the player walks on it, nothing is pushed onto it | 34, 36, 39, 40 | a floor boxes don't enter |
-| Keys open locks | 30, 31 | R'n'D's own keys and doors |
-| **Gems' powers** (used by the player, one a gem): red lays an arrow on each square left, blue pulls what's behind, green walks through anything and swaps it back | 5, 7, 11, 13, 18, 21, 23, 30, 35, 38, 40 | the hard part, below |
-| The yellow gem shows the whole pit | | not needed (R'n'D shows it) |
+How R'n'D's custom elements are stored (chunks `CUSX` and `GRPX`, typed values as in `src/files.c`) is in the code. Things that took finding out: a ground a box enters can't be indestructible; a group holds at most 16 elements (larger ones are groups of groups); a change on another element's doing needs R'n'D's "by other action" event as well; a change delay is `delay_fixed` times `delay_frames`; a level with mouse clicks waits for a key before it starts, so only levels with gems have buttons.
 
-Everything but the gems' powers is within what custom elements do. None of R'n'D's games (its own, Supaplex, Emerald Mine, Diamond Caves, Boulder Dash, Mirror Magic) has the same powers, but custom elements come close, using what those games have: items the player collects and drops (Supaplex's red disks), changes that know which side the player came from or left by, elements that move towards the player, and a CE that turns into the player (how R'n'D's teleporters are made).
+## What doesn't carry over
 
-| Gem | In Pits | In R'n'D |
-|---|---|---|
-| Red | the square the player next leaves becomes an arrow, pointing the way they went | the gem dropped where the player stands, a CE that turns into the arrow for the side the player leaves by: as in Pits |
-| Blue | the object behind the player follows them one square | the gem dropped: the boxes next to the player become ones that move a square towards the player, then are boxes again; close, but every box next to the player follows, not only the one behind |
-| Green | the player goes through walls and objects, and where they land an object swaps back to where they started | the gem dropped: walls and boxes become ones the player walks over, for some moves; landing on a box can't swap it |
+| | Levels |
+|---|---|
+| What plates, switches and signs do (their scripts) | 1, 6, 13, 21–28, 30, 32, 33, 36, 39, 40 |
+| A win by scripts alone | 22, 24, 25, 29, 33 |
+| Keys opening locks (a script runs there) | 30, 31 |
+| The green gem through boxes, and its swap (a box where the ghost lands goes to where it started) | 5, 7, 11, 13, 18, 21, 23, 35, 40 |
+| The blue gem pulls a box only from plain floor | |
 
-Whether a level needs a gem depends on its answer: some are a help, some the way through. Those eleven levels are the ones to check by playing.
+18 levels play as in Pits (2–4, 8–10, 12, 14–17, 19, 20, 34, 37, 38, and 5, 7, 11, 18 and 35 unless their answers walk a ghost through boxes).
 
-### Or in R'n'D itself
+## Next
 
-R'n'D's other games are separate engines (`src/game_sp`, `game_em`, `game_bd`, `game_mm`), each playing its own levels by its own rules; everything else, Sokoban and custom elements with it, is the R'n'D engine (`src/game.c`). A level says which engine plays it (`game_engine_type`). Custom elements are data, not code: 256 of them and 32 groups, each with properties (pushable, walkable over, can move), a way of moving, and up to 32 change pages (on an event, from a side: become another element, change the 3 by 3 around, or do an action such as "exit player" or "show envelope").
+The scripts, level by level: most of what they do is a plate or switch changing squares, which a custom element can do (it changes, and others change with it). Four rest on what only a script can do: a second worker (22), a hidden path taken in order (24), typed riddles (25), a count of moves (33).
 
-So the smallest change to R'n'D for what's missing would be two actions for change pages, beside "move player": **pull** (the element on the other side of the player follows them) and **pass through** (the player walks through walls for some moves). That is a change to R'n'D's level format and editor, for its author to take or not; the custom elements above don't need it.
-
-## Level by level
-
-| Level | Its answer needs | Now | With custom elements |
-|---|---|---|---|
-| 1 Starting Out | barrels on blue targets | plays | |
-| 2 A Little Harder | barrels on blue targets | plays | |
-| 3 Pick Four | barrels on blue targets | plays | |
-| 4 Crossroads | barrels on blue targets, crates in the way | plays (crates are barrels) | crates kept apart |
-| 5 Hide And Go Seek | barrels on blue targets; green gems | plays, without gems | if the gems aren't needed |
-| 6 Nothing Under The Boxes | water, crates | water is wall | yes |
-| 7 Islands | water, crates, an arrow; green gems | water is wall | yes, if the gems aren't needed |
-| 8 The Warehouse | crates in the way of barrels | plays (crates are barrels) | crates kept apart |
-| 9 Just Do It | barrels on blue targets | plays | |
-| 10 Time Limit | arrows, water | arrows are floor | yes |
-| 11 The Factory, Part 1 | arrows; all four gems | arrows are floor | if the gems aren't needed |
-| 12 The Factory, Part 2 | arrows, water, crates | | yes |
-| 13 Shortcut | water, crates; green and blue gems | | if the gems aren't needed |
-| 14 Mixed Signals | arrows | | yes |
-| 15 Labyrinth | a barrel on a blue target | plays | |
-| 16 3 Up, 3 Down | arrows | | yes |
-| 17 House of Glass | glass | | yes |
-| 18 Four Corners | water, crates; green and red gems | | if the gems aren't needed |
-| 19 Take Your Best Shot | glass, water | | yes |
-| 20 Symmetry | barrels on blue targets | plays | |
-| 21 Into The Deep | water; a green gem; plates (its script) | | partly |
-| 22 Man At Work | its script (a second worker) | no | no |
-| 23 The Magic Room | arrows, crates; a green gem | | if the gem isn't needed |
-| 24 As Easy As Pie | its script (a hidden path) | no | no |
-| 25 Riddle Room | its script (riddles typed in) | no | no |
-| 26 Timing Counts | arrows, crates on red targets | | yes |
-| 27 Watch Your Step | arrows, water, a crate | | yes |
-| 28 Garbage In, Garbage Out | barrels on blue targets | plays | |
-| 29 The Secret Stream | its script (reach a square), water, chests | no | yes: an exit there |
-| 30 The Museum | arrows, water, keys, all the boxes; red and blue gems | | partly |
-| 31 Inferno | lava, crates on red targets, a key | | yes |
-| 32 Up Lava Creek | lava, wood, chests | | yes |
-| 33 The Prime Directive | its script (a number of moves) | no | no |
-| 34 The Garden | grass, water, chests and a barrel | | yes |
-| 35 Gateways | water, all the boxes; red and blue gems | | if the gems aren't needed |
-| 36 Variations On A Theme | grass, a crate on each colour of target (its plates change it) | | yes, with the plates |
-| 37 FireWalker | barrels on blue targets | plays | |
-| 38 Two Birds | water, a crate and a barrel; a red gem | | if the gem isn't needed |
-| 39 Joystick Fun | grass, arrows | | yes |
-| 40 The End Of The Line | grass, lava, water, every box; red gem | | if the gem isn't needed |
-
-So: 11 levels play now; custom elements for the built-in rules would bring about 20 more, and the eleven with gems hang on whether their answers use them. Four (22, 24, 25, 33) rest on what only their scripts do.
-
-## Doing it
-
-Custom elements are stored in the level files (chunks `CUSX` and `CUS4`, in the same typed-value form as `INFO`; `src/files.c`). The rules are the same in every level, so they go in one set of custom elements, a level template (`use_custom_template`), and the conversion writes each Pits square as the CE for its ground and object. A level's scripts can come after, by hand in the editor's corrections where they matter.
+R'n'D itself could take two small additions for what's left, as change actions beside "move player": **pull** (the element on the far side of the player follows them) and **pass through** (the player goes through walls and objects for a while). Its author offered help with this port in 2020; such changes go to him as patches, as R'n'D isn't developed on GitHub.

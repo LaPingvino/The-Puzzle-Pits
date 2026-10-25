@@ -93,7 +93,7 @@ export function rndLevelFile(title, author, lines) {
 // conversion was corrected by hand
 export function rndPitsLevelFile(title, author, level) {
 	const { grid, left } = rndPitsGrid(level);
-	const gems = [64, 66].some((u) => level.under.some((col) => col.includes(u)));
+	const gems = [64, 65, 66].some((u) => level.under.some((col) => col.includes(u)));
 	return { bytes: levelFile(title, author, grid, [], rndRules(left ?? 0, gems), [0, 80, 0x11, 1]), scripted: left === null }; // the player keeps the floor it starts on
 }
 
@@ -113,7 +113,7 @@ export function rndPitsGrid(level) {
 	// the panel, a row above the pit: the gems' buttons (and the counter,
 	// hidden in the void)
 	const has = (u) => level.under.some((col) => col.includes(u));
-	const panel = [...(left !== null ? [rndCe("counter")] : []), ...(has(64) ? [rndCe("red_gems_0")] : []), ...(has(66) ? [rndCe("blue_gems_0")] : [])];
+	const panel = [...(left !== null ? [rndCe("counter")] : []), ...(has(64) ? [rndCe("red_gems_0")] : []), ...(has(66) ? [rndCe("blue_gems_0")] : []), ...(has(65) ? [rndCe("green_gems_0")] : [])];
 	if (panel.length) grid.unshift(Array.from({ length: grid[0].length }, (_, x) => panel[x] ?? 62));
 	return { grid, left };
 }
@@ -123,7 +123,7 @@ export function rndLost(level) {
 	const lost = new Set();
 	for (let x = 0; x < SIZE; x++) for (let y = 0; y < SIZE; y++) {
 		const o = level.over[x][y], u = level.under[x][y];
-		if (u === 65) lost.add("the green gem's power");
+		if (u === 65) lost.add("the green gem through boxes, and its swap");
 		if (u >= 68 && u <= 70 || u >= 76 && u <= 78) lost.add("keys and locks");
 		if (u === 58 || u === 59 || (o >= 13 && o <= 20) || (o >= 5 && o <= 8)) lost.add("plates, switches and signs (their scripts)");
 	}
@@ -241,6 +241,19 @@ export function rndArtwork(shapes) {
 	function picture(ce) {
 		if (ce === "start") return [ground(53)];
 		if (ALIAS[ce]) return picture(ALIAS[ce]);
+		if (ce === "wall") return [wall()];
+		if (GHOSTS.includes(ce)) { // as it is, see-through while the player is a ghost
+			const [g, m] = ce.split("~"), t = picture(g)[0];
+			if (m !== "out") for (let i = 3; i < t.length; i += 4) t[i] = t[i] && 150;
+			return [t];
+		}
+		if (GREEN.includes(ce)) { // the gem, a dot for each, and a ring while on
+			const on = ce.includes("_on_"), n = +ce.split("_").at(-1), t = ground(GROUND_TILES.green_gem);
+			for (let i = 0; i < t.length; i += 4) if (n === 0 && !on) for (let k = 0; k < 3; k++) t[i + k] >>= 2;
+			for (let k = 0; k < n; k++) for (let y = 40; y < 45; y++) for (let x = 2 + k * 6; x < 6 + k * 6; x++) t.set([255, 255, 255, 255], (y * T + x) * 4);
+			if (on) for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) if (x < 3 || y < 3 || x > T - 4 || y > T - 4) t.set([120, 255, 120, 255], (y * T + x) * 4);
+			return [t];
+		}
 		if (BUTTONS.includes(ce)) { // the gem, and a dot for each one there is (dim when none)
 			const [c, , n] = ce.split("_"), t = ground(GROUND_TILES[`${c}_gem`]);
 			for (let i = 0; i < t.length; i += 4) if (+n === 0) for (let k = 0; k < 3; k++) t[i + k] >>= 2;
@@ -343,6 +356,13 @@ const ALIAS = {
 const ALL_GROUNDS = [...Object.keys(GROUND_TILES), "start", ...Object.keys(ALIAS)];
 const baseOf = (g) => (g === "start" ? "floor" : ALIAS[g] ?? g);
 const BUTTONS = POWERS.flatMap((c) => Array.from({ length: MAX_GEMS + 1 }, (_, n) => `${c}_gems_${n}`));
+// green: the player is a ghost until it is clicked again (its button then
+// says "on"): walls, water, lava and holes can be walked through. Back, a
+// ghost in one of them can still step out (R'n'D would kill a player in a
+// wall that comes back), and boxes aren't walked through.
+const GHOSTLY = ["wall", "water", "lava", "hole"];
+const GHOSTS = GHOSTLY.flatMap((g) => [`${g}~ghost`, `${g}~in`, `${g}~out`]);
+const GREEN = ["", "on_"].flatMap((m) => Array.from({ length: MAX_GEMS + 1 }, (_, n) => `green_gems_${m}${n}`));
 // and on glass, sliding on the way it came (glass>right): R'n'D's change
 // knows the side a box came in by, not its direction once it is changed
 const SLIDES = { 1: "right", 2: "left", 4: "down", 8: "up" }; // the side it came in by: the way it goes
@@ -351,7 +371,7 @@ const BOXES = Object.keys(RND_OBJECTS).flatMap((k) => [...Object.keys(GROUND_TIL
 
 // custom_1, custom_2 ... in this order, the same in every level, so one
 // artwork set draws them all
-export const RND_CE_NAMES = [...Object.keys(GROUND_TILES), "start", ...BOXES, "counter", ...Object.keys(ALIAS), ...BUTTONS];
+export const RND_CE_NAMES = [...Object.keys(GROUND_TILES), "start", ...BOXES, "counter", ...Object.keys(ALIAS), ...BUTTONS, "wall", ...GHOSTS, ...GREEN];
 export const rndCe = (name) => EL_CUSTOM_1 + RND_CE_NAMES.indexOf(name);
 // groups of elements, at most 16 each (more are split into groups of groups)
 const GROUP_LIST = [];
@@ -365,6 +385,8 @@ defineGroup("boxes_home", Object.entries(RND_OBJECTS).map(([k, o]) => `${k}@${o.
 for (const k of Object.keys(RND_OBJECTS)) defineGroup(`enter_${k}`, ALL_GROUNDS.filter((g) => canEnter(k, baseOf(g))));
 for (const c of POWERS) defineGroup(`${c}_buttons`, BUTTONS.filter((b) => b.startsWith(c + "_")));
 defineGroup("red_armed", Object.keys(ALIAS).filter((g) => g.endsWith("~red")));
+defineGroup("green_off", GREEN.filter((b) => !b.includes("_on_")));
+defineGroup("green_on", GREEN.filter((b) => b.includes("_on_")));
 const rndGroup = (name) => EL_GROUP_1 + GROUP_LIST.findIndex(([n]) => n === name);
 
 // the typed values R'n'D's level files keep (files.c: chunk_config_CUSX_*)
@@ -421,11 +443,32 @@ export function rndRules(left, gems = true) {
 	const custom = (name, d) => chunks.push(["CUSX", customChunk(rndCe(name), d)]);
 	// (grounds aren't indestructible: a box couldn't enter them)
 	const armed = (c) => ({ events: [CE_EV.CHANGE_OF_X], trigger: rndGroup(`${c}_buttons`), triggerPage: 1 }); // a button clicked (its page 0)
+	const ghostly = (group) => ({ events: [CE_EV.CHANGE_OF_X], trigger: rndGroup(group), triggerPage: 1 }); // green clicked: a ghost, or back
+	custom("wall", { props: ["CAN_CHANGE", "INDESTRUCTIBLE"], pages: [{ ...ghostly("green_off"), target: rndCe("wall~ghost") }] });
+	for (const g of GHOSTLY) {
+		custom(`${g}~ghost`, { props: ["WALKABLE_OVER", "CAN_CHANGE"], pages: [
+			{ events: [CE_EV.ENTERED_BY_PLAYER], target: rndCe(`${g}~in`) },
+			{ ...ghostly("green_on"), target: rndCe(g) },
+		] });
+		custom(`${g}~in`, { props: ["WALKABLE_OVER", "CAN_CHANGE"], pages: [
+			{ events: [CE_EV.LEFT_BY_PLAYER], target: rndCe(`${g}~ghost`) },
+			{ ...ghostly("green_on"), target: rndCe(`${g}~out`) },
+		] });
+		custom(`${g}~out`, { props: ["WALKABLE_OVER", "CAN_CHANGE"], pages: [{ events: [CE_EV.LEFT_BY_PLAYER], target: rndCe(g) }] });
+	}
+	for (const b of gems ? GREEN : []) {
+		const on = b.includes("_on_"), k = +b.split("_").at(-1), name = (o, n) => `green_gems_${o ? "on_" : ""}${n}`;
+		custom(b, { props: ["INDESTRUCTIBLE", "CAN_CHANGE"], pages: [
+			on ? { events: [CE_EV.CLICKED_BY_MOUSE], target: rndCe(name(false, k)) } : k > 0 ? { events: [CE_EV.CLICKED_BY_MOUSE], target: rndCe(name(true, k - 1)) } : { events: [] },
+			...(k < MAX_GEMS ? [{ events: [CE_EV.CHANGE_OF_X], trigger: rndCe("green_gem"), target: rndCe(name(on, k + 1)) }] : []),
+		] });
+	}
 	for (const g of Object.keys(GROUND_TILES)) {
 		const pages = [];
 		if (COLLECTED.includes(g)) pages.push({ events: [CE_EV.ENTERED_BY_PLAYER], target: rndCe("floor") });
 		if (g === "floor" || ARROWS[g]) pages.push({ ...armed("red"), target: rndCe(`${g}~red`) });
 		if (g === "floor") pages.push({ ...armed("blue"), target: rndCe("floor~blue") });
+		if (GHOSTLY.includes(g)) pages.push({ ...ghostly("green_off"), target: rndCe(`${g}~ghost`) });
 		custom(g, { props: NOT_WALKABLE.has(g) ? [] : ["WALKABLE_OVER", ...(pages.length ? ["CAN_CHANGE"] : [])], pages });
 	}
 	for (const g of Object.keys(ALIAS)) {
@@ -437,7 +480,7 @@ export function rndRules(left, gems = true) {
 		custom(g, { props: ["WALKABLE_OVER", "CAN_CHANGE"], pages });
 	}
 	// (without gems, no buttons: a level with mouse clicks waits for a key to start)
-	if (gems) for (const b of BUTTONS) {
+	for (const b of gems ? BUTTONS : []) {
 		const [c, , n] = b.split("_"), k = +n;
 		custom(b, { props: ["INDESTRUCTIBLE", "CAN_CHANGE"], pages: [
 			k > 0 ? { events: [CE_EV.CLICKED_BY_MOUSE], target: rndCe(`${c}_gems_${k - 1}`) } : { events: [] },
@@ -499,7 +542,7 @@ export function rndCells(level) {
 			if (g?.endsWith("_target")) targets++;
 			let e;
 			if (o === 100) e = rndCe("start");
-			else if ([1, 5, 9, 13, 17].includes(o)) e = 13; // steel wall
+			else if ([1, 5, 9, 13, 17].includes(o)) e = rndCe("wall");
 			else if (KIND_OF[o] && g && BOXES.includes(`${KIND_OF[o]}@${g}`)) {
 				e = rndCe(`${KIND_OF[o]}@${g}`);
 				if (g === RND_OBJECTS[KIND_OF[o]].own) home++;
