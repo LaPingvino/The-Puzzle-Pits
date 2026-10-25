@@ -23,6 +23,7 @@ extern char cryptkey[];
 
 void Error(const char *mesg);
 
+#define ReadFile pits_ReadFile // not Windows' ReadFile
 FILE *ReadFile(char *fname);
 ULONG FileSize(FILE *fp);
 WORD Exists(char *fname);

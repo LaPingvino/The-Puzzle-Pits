@@ -33,7 +33,12 @@ extern SDL_Renderer *sdl_renderer;
 extern SDL_Texture *sdl_texture;
 extern SDL_Event sdl_event;
 
-// Video mode functions
+// Video mode functions; setmode named apart from mingw's (io.h, there
+// first so it is not declared again after this)
+#ifdef _WIN32
+#include <io.h>
+#endif
+#define setmode pits_setmode
 void setmode(int mode);
 void cls(char *screen);
 void screenswap(char *screen);
@@ -80,7 +85,10 @@ typedef struct {
 #define _disable() SDL_DisableScreenSaver()
 #define _enable() SDL_EnableScreenSaver()
 
-// Port I/O stubs
+// Port I/O stubs, named apart from those some C libraries declare
+// (mingw's), which they would clash with
+#define inp pits_inp
+#define outp pits_outp
 static inline uint8_t inp(uint16_t port) {
     // Stub for port input - return 0
     return 0;

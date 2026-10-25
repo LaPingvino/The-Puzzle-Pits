@@ -1,5 +1,11 @@
 #include "compat.h"
 #include <stdio.h>
+#ifdef _WIN32
+#include <direct.h>
+#define chdir _chdir
+#else
+#include <unistd.h>
+#endif
 
 // Global SDL variables
 SDL_Window *sdl_window = NULL;
@@ -50,10 +56,43 @@ extern char inkey;
 // themselves for ever
 
 // Initialize SDL subsystems
+// findData goes where the game's files are: the game reads them from the
+// current folder: the program's own in a download (they come with it),
+// wherever it is started from
+static void findData(void) {
+    char *base = SDL_GetBasePath();
+    if (!base) {
+        return;
+    }
+    // a download, beside it, zig-out/bin in the source, an installed one
+    const char *places[] = {"", "PITS95/", "../../PITS95/", "../share/puzzle-pits/"};
+    for (int i = 0; i < 4; i++) {
+        char dir[1024], file[1100];
+        snprintf(dir, sizeof dir, "%s%s", base, places[i]);
+        snprintf(file, sizeof file, "%sTITLE.DAT", dir);
+        SDL_RWops *f = SDL_RWFromFile(file, "rb");
+        if (f) {
+            SDL_RWclose(f);
+            if (chdir(dir) == 0) {
+                break;
+            }
+        }
+    }
+    SDL_free(base);
+}
+
 int init_sdl_compat(void) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         return -1;
+    }
+    {
+        FILE *here = fopen("TITLE.DAT", "rb"); // started in the game's folder
+        if (here) {
+            fclose(here);
+        } else {
+            findData();
+        }
     }
 
     // the 320x200 screen three times as big, in a window that can be
@@ -371,6 +410,16 @@ static void scripted_keys(void) {
 static void process_sdl_events(void) {
     refresh();
     scripted_keys();
+    static long quit_after = -1; // PITS_QUIT_AFTER=ms: write PITS_SHOT and quit then
+    if (quit_after < 0) {
+        const char *q = getenv("PITS_QUIT_AFTER");
+        quit_after = q ? atol(q) : 0;
+    }
+    if (quit_after > 0 && SDL_GetTicks() >= (Uint32)quit_after) {
+        shoot();
+        cleanup_sdl_compat();
+        exit(0);
+    }
     while (SDL_PollEvent(&sdl_event)) {
         SDL_Keycode sym = sdl_event.key.keysym.sym;
         if (sdl_event.type == SDL_KEYDOWN && !sdl_event.key.repeat &&

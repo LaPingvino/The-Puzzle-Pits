@@ -1,0 +1,100 @@
+name: Build
+
+# Every push to master builds the game for Linux, Windows and macOS; a v*
+# tag also makes a release of them, each with the game's data, to play.
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  ZIG_VERSION: 0.17.0
+  SDL2_VERSION: 2.32.10
+
+jobs:
+  linux:
+    # the oldest supported Ubuntu, so it runs on older distributions too
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
+      - run: zig build -Doptimize=ReleaseSafe
+      - name: Package
+        run: |
+          name=puzzle-pits-${GITHUB_REF_NAME#v}-linux-x86_64
+          mkdir -p $name dist
+          cp zig-out/bin/puzzle-pits $name/
+          cp -r PITS95/* README.md LICENSE $name/
+          tar czf dist/$name.tar.gz $name
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*
+
+  windows:
+    # cross-compiled with Zig, with SDL2's own Windows build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: SDL2 for Windows
+        run: |
+          curl -fsSL -o sdl.tar.gz https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_VERSION}/SDL2-devel-${SDL2_VERSION}-mingw.tar.gz
+          tar xzf sdl.tar.gz
+      - run: zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSafe -Dsdl-prefix=$PWD/SDL2-${SDL2_VERSION}/x86_64-w64-mingw32
+      - name: Package
+        run: |
+          name=puzzle-pits-${GITHUB_REF_NAME#v}-windows-x64
+          mkdir -p $name dist
+          cp zig-out/bin/puzzle-pits.exe SDL2-${SDL2_VERSION}/x86_64-w64-mingw32/bin/SDL2.dll $name/
+          cp -r PITS95/* README.md LICENSE $name/
+          zip -qr dist/$name.zip $name
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - run: brew install sdl2 dylibbundler
+      - run: zig build -Doptimize=ReleaseSafe -Dsdl-prefix=$(brew --prefix sdl2)
+      - name: Package
+        run: |
+          name=puzzle-pits-${GITHUB_REF_NAME#v}-macos-arm64
+          mkdir -p $name dist
+          cp zig-out/bin/puzzle-pits $name/
+          cp -r PITS95/* README.md LICENSE $name/
+          # SDL2 goes with it, so it runs without Homebrew
+          dylibbundler -od -b -x $name/puzzle-pits -d $name/libs -p @executable_path/libs/
+          ditto -c -k --keepParent $name dist/$name.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "The Puzzle Pits $GITHUB_REF_NAME" --generate-notes
