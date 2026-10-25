@@ -477,6 +477,19 @@ uint16_t readmbutton(void) {
     return mouse_buttons;
 }
 
+// warpmouse puts the system's pointer where the game put its own (x, y in
+// its pixels), so the game's does not follow it back; only while the
+// window has the focus, not to take the pointer from another one
+void warpmouse(int x, int y) {
+    mouse_x = x;
+    mouse_y = y;
+    if (sdl_window && (SDL_GetWindowFlags(sdl_window) & SDL_WINDOW_INPUT_FOCUS)) {
+        int wx, wy;
+        SDL_RenderLogicalToWindow(sdl_renderer, (float)x, (float)y, &wx, &wy);
+        SDL_WarpMouseInWindow(sdl_window, wx, wy);
+    }
+}
+
 // relpos is how far the mouse moved since it was last asked: here, from
 // where the game's pointer is (mx, my) to the system's, so it follows it
 void relpos(int16_t *x, int16_t *y) {

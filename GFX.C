@@ -516,6 +516,7 @@ void drawmouse(char *screen)
     dest+=304;
   }
   */
+  blitmask(mx-moffx,my-moffy,(unsigned char *)shapes[mouseimage+276],screen);  /* the pointer (an earlier change had left it out) */
 }
 
 void SetMousePos(WORD x,WORD y)
@@ -527,6 +528,7 @@ void SetMousePos(WORD x,WORD y)
   erasemouse(physical);
   mx=x;
   my=y;
+  warpmouse(x,y);  /* the system's pointer there too, as DOS's driver did */
   copymousebg(physical);
   drawmouse(physical);
 }

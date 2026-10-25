@@ -109,6 +109,7 @@ static inline uint16_t readmbutton(void) {
     return 0;  // No buttons pressed
 }
 
+static inline void warpmouse(int x, int y) { (void)x; (void)y; }
 static inline void relpos(int16_t *x, int16_t *y) {
     *x = 0;
     *y = 0;
