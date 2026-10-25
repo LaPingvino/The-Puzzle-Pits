@@ -186,6 +186,7 @@ int main()
           OwnBlit();
           Blit(LOGIC,128,148,TITLETEXTBG);
           DisownBlit();
+          for(y=0;y<8*n+2;y++) memcpy(logical+(top-8+y)*320+128,menubg[y],192);  /* the whole menu's place */
           ShadowText(141,148,"Enter Level Password",20,16);
           ShadowText(141,164,password,x,1);
           ShadowText(141+TxtLength(password,x),164,"_",1,16);
