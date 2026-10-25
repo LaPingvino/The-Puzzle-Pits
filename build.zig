@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) void {
     const sdl_prefix = b.option([]const u8, "sdl-prefix", "Where SDL2's include and lib folders are");
 
     const sources = [_][]const u8{
-        "ENV.C", "FILE.C", "GFX.C", "LOAD.C", "SETMODE.C",
+        "ENV.C", "FILE.C", "GFX.C", "LOAD.C", // SETMODE.C is DOS's (Watcom asm), unused
     };
     // the game was written for a 16-bit DOS compiler: char is unsigned
     // (WORD and LONG are sized in compat.h)
