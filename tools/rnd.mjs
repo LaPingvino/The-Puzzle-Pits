@@ -93,7 +93,8 @@ export function rndLevelFile(title, author, lines) {
 // conversion was corrected by hand
 export function rndPitsLevelFile(title, author, level) {
 	const { grid, left } = rndPitsGrid(level);
-	return { bytes: levelFile(title, author, grid, [], rndRules(left ?? 0), [0, 80, 0x11, 1]), scripted: left === null }; // the player keeps the floor it starts on
+	const gems = [64, 66].some((u) => level.under.some((col) => col.includes(u)));
+	return { bytes: levelFile(title, author, grid, [], rndRules(left ?? 0, gems), [0, 80, 0x11, 1]), scripted: left === null }; // the player keeps the floor it starts on
 }
 
 // the level's rows of elements, as rndPitsLevelFile writes them
@@ -109,12 +110,11 @@ export function rndPitsGrid(level) {
 	grid = grid.map((row) => row.slice(l, r));
 	const w = grid[0].length;
 	grid = grid.map((row) => [...Array((Math.max(w, RND_VIEW) - w) >> 1).fill(62), ...row]);
-	// the counter, in a corner of the void
-	if (left !== null) {
-		if (!grid.some((row) => row.includes(62))) grid.push(Array(w).fill(62));
-		const y = grid.findIndex((row) => row.includes(62));
-		grid[y][grid[y].indexOf(62)] = rndCe("counter");
-	}
+	// the panel, a row above the pit: the gems' buttons (and the counter,
+	// hidden in the void)
+	const has = (u) => level.under.some((col) => col.includes(u));
+	const panel = [...(left !== null ? [rndCe("counter")] : []), ...(has(64) ? [rndCe("red_gems_0")] : []), ...(has(66) ? [rndCe("blue_gems_0")] : [])];
+	if (panel.length) grid.unshift(Array.from({ length: grid[0].length }, (_, x) => panel[x] ?? 62));
 	return { grid, left };
 }
 
@@ -123,7 +123,7 @@ export function rndLost(level) {
 	const lost = new Set();
 	for (let x = 0; x < SIZE; x++) for (let y = 0; y < SIZE; y++) {
 		const o = level.over[x][y], u = level.under[x][y];
-		if (u >= 64 && u <= 66) lost.add("the gems' powers");
+		if (u === 65) lost.add("the green gem's power");
 		if (u >= 68 && u <= 70 || u >= 76 && u <= 78) lost.add("keys and locks");
 		if (u === 58 || u === 59 || (o >= 13 && o <= 20) || (o >= 5 && o <= 8)) lost.add("plates, switches and signs (their scripts)");
 	}
@@ -238,14 +238,21 @@ export function rndArtwork(shapes) {
 	}
 	add("player_1", [crop(100 + 8)]);
 	// Pits' rules: the grounds (water and lava moving), the boxes on them
-	const picture = (ce) => {
+	function picture(ce) {
 		if (ce === "start") return [ground(53)];
+		if (ALIAS[ce]) return picture(ALIAS[ce]);
+		if (BUTTONS.includes(ce)) { // the gem, and a dot for each one there is (dim when none)
+			const [c, , n] = ce.split("_"), t = ground(GROUND_TILES[`${c}_gem`]);
+			for (let i = 0; i < t.length; i += 4) if (+n === 0) for (let k = 0; k < 3; k++) t[i + k] >>= 2;
+			for (let k = 0; k < +n; k++) for (let y = 40; y < 45; y++) for (let x = 2 + k * 6; x < 6 + k * 6; x++) t.set([255, 255, 255, 255], (y * T + x) * 4);
+			return [t];
+		}
 		if (ce === "counter") return [(() => { const t = tile(); for (let i = 3; i < t.length; i += 4) t[i] = 255; return t; })()];
 		if (GROUND_TILES[ce] !== undefined) return ce === "water" || ce === "lava" ? [0, 1, 2, 3].map((f) => ground(GROUND_TILES[ce] + f)) : [ground(GROUND_TILES[ce])];
 		const [kind, at] = ce.split("@"), g = at.split(">")[0], o = RND_OBJECTS[kind], under = GROUND_TILES[g];
 		const n = g === o.own ? o.home : g === "water" && o.water ? o.water : (g === "hole" || g === "wood") && o.hole ? o.hole : o.tile;
 		return [kind === "barrel" ? crop(n, under, BARREL_X, BARREL_Y, true) : kind === "crate" ? crop(n, under, 12, 12) : crop(n, under, 14, 14)];
-	};
+	}
 	RND_CE_NAMES.forEach((ce, i) => add(`custom_${i + 1}`, picture(ce)));
 	add("sokoban_field_player", [crop(100 + 8, 56)]);
 
@@ -289,8 +296,8 @@ export function rndArtwork(shapes) {
 // that turns into the player.
 
 const EP = { DIGGABLE: 0, INDESTRUCTIBLE: 5, CAN_CHANGE: 7, CAN_MOVE: 8, WALKABLE_OVER: 16, PUSHABLE: 24, CAN_MOVE_INTO_ACID: 27 };
-const CE_EV = { DELAY: 0, PRESSED_BY_PLAYER: 2, PUSHED_BY_PLAYER: 3, CHANGE_OF_X: 9, VALUE_GETS_ZERO: 16, BY_OTHER_ACTION: 18, ENTERED_BY_PLAYER: 21, LEFT_BY_PLAYER: 22, DIGGING_X: 36, CREATION_OF_X: 37 };
-const TRIGGERED = new Set([CE_EV.CHANGE_OF_X, CE_EV.CREATION_OF_X]); // what another element does: R'n'D wants "by other action" with it
+const CE_EV = { DELAY: 0, PRESSED_BY_PLAYER: 2, PUSHED_BY_PLAYER: 3, CHANGE_OF_X: 9, VALUE_GETS_ZERO: 16, BY_OTHER_ACTION: 18, ENTERED_BY_PLAYER: 21, LEFT_BY_PLAYER: 22, DIGGING_X: 36, CREATION_OF_X: 37, CLICKED_BY_MOUSE: 44, NEXT_TO_X: 49 };
+const TRIGGERED = new Set([CE_EV.CHANGE_OF_X, CE_EV.CREATION_OF_X, CE_EV.NEXT_TO_X]); // what another element does: R'n'D wants "by other action" with it
 const MV = { LEFT: 1, RIGHT: 2, UP: 4, DOWN: 8, ALL: 15, PREVIOUS: 1 << 4, WHEN_PUSHED: 1 << 10 };
 const CA = { EXIT_PLAYER: 1, SET_CE_VALUE: 16 }, CA_MODE = { SET: 1, ADD: 2, SUBTRACT: 3 }, CA_PLAYER_ANY = 10015;
 const EL_PLAYER_1 = 80, EL_CUSTOM_1 = 360, EL_GROUP_1 = 624;
@@ -316,14 +323,35 @@ function boxGone(kind, ground) {
 	return null;
 }
 const canEnter = (kind, ground) => ground !== "grass";
+
+// the gems: collected by walking over them (so are keys); a red or blue
+// one is used by clicking its button, beside the pit as in Pits' panel
+// (one element for each count, as a change can't look at a value). Red:
+// the floor and arrows are armed, and the one the player leaves becomes
+// an arrow the way they went. Blue: the floor is armed, and the one left
+// becomes a magnet for a moment, which a box behind it moves onto.
+const COLLECTED = ["red_gem", "green_gem", "blue_gem", "yellow_gem", "red_key", "green_key", "blue_key"];
+const MAX_GEMS = 8;
+const POWERS = ["red", "blue"];
+const SIDES = { up: 4, right: 2, down: 8, left: 1 }; // R'n'D's sides, the same as its directions
+const OPPOSITE = { up: "down", down: "up", left: "right", right: "left" };
+// grounds that look and act as another (box states, pictures)
+const ALIAS = {
+	"floor~red": "floor", ...Object.fromEntries(Object.keys(ARROWS).map((a) => [`${a}~red`, a])), "floor~blue": "floor",
+	...Object.fromEntries(Object.keys(SIDES).map((d) => [`magnet_${d}`, "floor"])),
+};
+const ALL_GROUNDS = [...Object.keys(GROUND_TILES), "start", ...Object.keys(ALIAS)];
+const baseOf = (g) => (g === "start" ? "floor" : ALIAS[g] ?? g);
+const BUTTONS = POWERS.flatMap((c) => Array.from({ length: MAX_GEMS + 1 }, (_, n) => `${c}_gems_${n}`));
 // and on glass, sliding on the way it came (glass>right): R'n'D's change
 // knows the side a box came in by, not its direction once it is changed
 const SLIDES = { 1: "right", 2: "left", 4: "down", 8: "up" }; // the side it came in by: the way it goes
-const BOXES = Object.keys(RND_OBJECTS).flatMap((k) => [...Object.keys(GROUND_TILES).filter((g) => canEnter(k, g) && !boxGone(k, g)), ...Object.values(SLIDES).map((d) => `glass>${d}`)].map((g) => `${k}@${g}`));
+// and on the floor, pulled a square (floor>pull_up) by a blue gem's magnet
+const BOXES = Object.keys(RND_OBJECTS).flatMap((k) => [...Object.keys(GROUND_TILES).filter((g) => canEnter(k, g) && !boxGone(k, g)), ...Object.values(SLIDES).map((d) => `glass>${d}`), ...Object.keys(SIDES).map((d) => `floor>pull_${d}`)].map((g) => `${k}@${g}`));
 
 // custom_1, custom_2 ... in this order, the same in every level, so one
 // artwork set draws them all
-export const RND_CE_NAMES = [...Object.keys(GROUND_TILES), "start", ...BOXES, "counter"];
+export const RND_CE_NAMES = [...Object.keys(GROUND_TILES), "start", ...BOXES, "counter", ...Object.keys(ALIAS), ...BUTTONS];
 export const rndCe = (name) => EL_CUSTOM_1 + RND_CE_NAMES.indexOf(name);
 // groups of elements, at most 16 each (more are split into groups of groups)
 const GROUP_LIST = [];
@@ -334,7 +362,9 @@ function defineGroup(name, members) {
 	GROUP_LIST.push([name, parts.map((p) => ({ group: p }))]);
 }
 defineGroup("boxes_home", Object.entries(RND_OBJECTS).map(([k, o]) => `${k}@${o.own}`));
-for (const k of Object.keys(RND_OBJECTS)) defineGroup(`enter_${k}`, [...Object.keys(GROUND_TILES), "start"].filter((g) => canEnter(k, g)));
+for (const k of Object.keys(RND_OBJECTS)) defineGroup(`enter_${k}`, ALL_GROUNDS.filter((g) => canEnter(k, baseOf(g))));
+for (const c of POWERS) defineGroup(`${c}_buttons`, BUTTONS.filter((b) => b.startsWith(c + "_")));
+defineGroup("red_armed", Object.keys(ALIAS).filter((g) => g.endsWith("~red")));
 const rndGroup = (name) => EL_GROUP_1 + GROUP_LIST.findIndex(([n]) => n === name);
 
 // the typed values R'n'D's level files keep (files.c: chunk_config_CUSX_*)
@@ -368,7 +398,8 @@ function customChunk(el, d) {
 		if (p.target !== undefined) micro(out, 0x41, p.target, 2);
 		if (p.trigger !== undefined) micro(out, 0x45, p.trigger, 2);
 		if (p.side !== undefined) micro(out, 0x04, p.side, 1);
-		if (p.delay !== undefined) micro(out, 0x44, p.delay, 2); // in frames
+		if (p.triggerPage !== undefined) micro(out, 0x83, p.triggerPage, 4);
+		if (p.delay !== undefined) { micro(out, 0x42, p.delay, 2); micro(out, 0x44, 1, 2); } // delay_fixed of delay_frames: p.delay frames
 		if (p.action) {
 			micro(out, 0x0c, 1, 1);
 			micro(out, 0x0d, p.action.type, 1);
@@ -385,10 +416,34 @@ function groupChunk(el, members) {
 }
 
 // the chunks for a level with `left` targets still to fill
-export function rndRules(left) {
+export function rndRules(left, gems = true) {
 	const chunks = [];
 	const custom = (name, d) => chunks.push(["CUSX", customChunk(rndCe(name), d)]);
-	for (const g of Object.keys(GROUND_TILES)) custom(g, { props: NOT_WALKABLE.has(g) ? [] : ["WALKABLE_OVER"] }); // not indestructible: a box couldn't enter it
+	// (grounds aren't indestructible: a box couldn't enter them)
+	const armed = (c) => ({ events: [CE_EV.CHANGE_OF_X], trigger: rndGroup(`${c}_buttons`), triggerPage: 1 }); // a button clicked (its page 0)
+	for (const g of Object.keys(GROUND_TILES)) {
+		const pages = [];
+		if (COLLECTED.includes(g)) pages.push({ events: [CE_EV.ENTERED_BY_PLAYER], target: rndCe("floor") });
+		if (g === "floor" || ARROWS[g]) pages.push({ ...armed("red"), target: rndCe(`${g}~red`) });
+		if (g === "floor") pages.push({ ...armed("blue"), target: rndCe("floor~blue") });
+		custom(g, { props: NOT_WALKABLE.has(g) ? [] : ["WALKABLE_OVER", ...(pages.length ? ["CAN_CHANGE"] : [])], pages });
+	}
+	for (const g of Object.keys(ALIAS)) {
+		const pages = [];
+		if (g.endsWith("~red") || g === "floor~blue") {
+			for (const [d, side] of Object.entries(SIDES)) pages.push({ events: [CE_EV.LEFT_BY_PLAYER], side, target: rndCe(g.endsWith("~red") ? `arrow_${d}` : `magnet_${d}`) });
+			pages.push({ events: [CE_EV.CHANGE_OF_X], trigger: g.endsWith("~red") ? rndGroup("red_armed") : rndCe("floor~blue"), target: rndCe(ALIAS[g]) }); // one used: the rest as they were
+		} else pages.push({ events: [CE_EV.DELAY], delay: 24, target: rndCe("floor") }); // a magnet, while the player steps off it and a box comes
+		custom(g, { props: ["WALKABLE_OVER", "CAN_CHANGE"], pages });
+	}
+	// (without gems, no buttons: a level with mouse clicks waits for a key to start)
+	if (gems) for (const b of BUTTONS) {
+		const [c, , n] = b.split("_"), k = +n;
+		custom(b, { props: ["INDESTRUCTIBLE", "CAN_CHANGE"], pages: [
+			k > 0 ? { events: [CE_EV.CLICKED_BY_MOUSE], target: rndCe(`${c}_gems_${k - 1}`) } : { events: [] },
+			...(k < MAX_GEMS ? [{ events: [CE_EV.CHANGE_OF_X], trigger: rndCe(`${c}_gem`), target: rndCe(`${c}_gems_${k + 1}`) }] : []),
+		] });
+	}
 	// the start: a floor that turns into the player once (kept under them,
 	// it would turn again at every delay; its value falls to 0 only once)
 	custom("start", { props: ["WALKABLE_OVER", "CAN_CHANGE"], value: 1, pages: [
@@ -399,16 +454,19 @@ export function rndRules(left) {
 		const [kind, ground] = name.split("@");
 		const [base, slide] = ground.split(">");
 		const d = { props: ["PUSHABLE", "CAN_CHANGE"], moveEnter: rndGroup(`enter_${kind}`), moveLeave: rndCe(base), pages: [] };
-		const way = ARROWS[base] ?? (slide && MV[slide.toUpperCase()]);
+		const way = ARROWS[base] ?? (slide && MV[slide.replace("pull_", "").toUpperCase()]);
 		if (way) { Object.assign(d, { movePattern: way, moveDir: way, moveDelay: 0 }); d.props.push("CAN_MOVE"); }
-		for (const g of [...Object.keys(GROUND_TILES), "start"]) {
-			if (!canEnter(kind, g === "start" ? "floor" : g)) continue;
-			const sides = g === "glass" ? Object.entries(SLIDES) : [[undefined]];
+		for (const g of ALL_GROUNDS) {
+			const b = baseOf(g);
+			if (!canEnter(kind, b)) continue;
+			const sides = b === "glass" ? Object.entries(SLIDES) : [[undefined]];
 			for (const [side, to] of sides) {
-				const state = boxGone(kind, g) ?? `${kind}@${g === "start" ? "floor" : g}${to ? ">" + to : ""}`;
+				const state = boxGone(kind, b) ?? `${kind}@${b}${to ? ">" + to : ""}`;
 				if (state !== name) d.pages.push({ events: [CE_EV.DIGGING_X], trigger: rndCe(g), side: side && +side, target: rndCe(state) });
 			}
 		}
+		// a magnet next to it, the way it would go: pulled onto it
+		if (ground === "floor") for (const dir of Object.keys(SIDES)) d.pages.push({ events: [CE_EV.NEXT_TO_X], trigger: rndCe(`magnet_${dir}`), side: SIDES[OPPOSITE[dir]], target: rndCe(`${kind}@floor>pull_${dir}`) });
 		custom(name, d);
 	}
 	// down when a box comes home, up when one leaves; at none, won
