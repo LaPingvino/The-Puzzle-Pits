@@ -126,6 +126,7 @@ int init_sdl_compat(void) {
     // drawn at 320x200 whatever the window's size, and the mouse's
     // position told in those pixels
     SDL_RenderSetLogicalSize(sdl_renderer, 320, 200);
+    SDL_RenderSetIntegerScale(sdl_renderer, SDL_TRUE); // even pixels: whole multiples, a border round them
 
     // Create texture for VGA buffer
     sdl_texture = SDL_CreateTexture(
