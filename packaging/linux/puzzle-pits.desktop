@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=The Puzzle Pits
+Comment=Push barrels, step on plates and find the way out of forty pits
+Exec=puzzle-pits
+Icon=puzzle-pits
+Categories=Game;LogicGame;
+Keywords=puzzle;dos;sokoban;
