@@ -1239,7 +1239,9 @@ void Gdrall(void)
 
   flashx=glassflash%9;
   flashy=glassflash/9;
-  if(under[flashx+regs[REG_XGUY-201]-4][flashy+regs[REG_YGUY-201]-3]!=GLASS){
+  xd=flashx+regs[REG_XGUY-201]-4;  /* the square in view to sparkle, if glass; */
+  yd=flashy+regs[REG_YGUY-201]-3;  /* off the map near its edge (not glass)   */
+  if(xd<0 || xd>22 || yd<0 || yd>22 || under[xd][yd]!=GLASS){
     glassflash+=17;
     glassflash%=63;
   }
