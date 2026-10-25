@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Puzzle Pits Editor</title>
+<style>
+  :root { --bg: #15171c; --panel: #1f2229; --line: #353a45; --text: #e4e6eb; --muted: #9aa1ad; --accent: #f2c14e; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .6rem 1rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 1rem; margin: 0 .5rem 0 0; }
+  header .spacer { flex: 1; }
+  button, select, input, label.file { font: inherit; color: var(--text); background: #2a2e37; border: 1px solid var(--line); border-radius: 5px; padding: .3rem .6rem; }
+  button:hover, label.file:hover { border-color: var(--muted); cursor: pointer; }
+  button.primary { background: var(--accent); color: #111; border-color: var(--accent); }
+  label.file input { display: none; }
+  main { display: grid; grid-template-columns: auto minmax(300px, 1fr); gap: 1rem; padding: 1rem; align-items: start; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+  #pitwrap { display: flex; flex-direction: column; gap: .4rem; }
+  #pit { image-rendering: pixelated; width: min(552px * 1.25, 92vw); max-width: 690px; aspect-ratio: 1; border: 1px solid var(--line); cursor: crosshair; touch-action: none; }
+  .row { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; color: var(--muted); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: .7rem; margin-bottom: 1rem; }
+  section h2 { font-size: .9rem; margin: 0 0 .5rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .tiles { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tile, .toolbtn { padding: 2px; background: #111; line-height: 0; }
+  .toolbtn { line-height: 1.4; padding: .3rem .6rem; background: #2a2e37; }
+  .tile canvas { image-rendering: pixelated; width: 36px; height: 36px; }
+  .tile.on, .toolbtn.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .fields { display: grid; grid-template-columns: auto 1fr; gap: .4rem .6rem; align-items: center; }
+  textarea { width: 100%; min-height: 18rem; font: 12px/1.45 ui-monospace, monospace; color: var(--text); background: #111; border: 1px solid var(--line); border-radius: 5px; padding: .5rem; resize: vertical; }
+  #scripterror { color: #ff8a80; min-height: 1.2em; font-size: 13px; }
+  #status { color: var(--muted); }
+  details { color: var(--muted); font-size: 13px; }
+  details code { color: var(--text); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Puzzle Pits Editor</h1>
+  <select id="levels" title="Abe's levels, or a new one"><option value="new">New level</option></select>
+  <label class="file">Open .PIT…<input id="open" type="file" accept=".pit,.PIT"></label>
+  <button id="save">Save .PIT</button>
+  <button id="play" class="primary" title="Opens the level in the game, in a new tab">Play</button>
+  <span class="spacer"></span>
+  <span id="file"></span>
+</header>
+<main>
+  <div id="pitwrap">
+    <canvas id="pit"></canvas>
+    <div class="row">
+      <label><input type="checkbox" id="grid"> Grid</label>
+      <label><input type="checkbox" id="showscripts" checked> Scripts on squares</label>
+      <span id="where"></span>
+    </div>
+    <div class="row" id="status"></div>
+  </div>
+  <div>
+    <section>
+      <h2>Level</h2>
+      <div class="fields">
+        <label for="title">Title</label><input id="title" maxlength="40">
+        <label for="password">Password</label><input id="password" maxlength="20" title="Typed on the title screen to start at the level after this one">
+      </div>
+    </section>
+    <section>
+      <h2>Objects</h2>
+      <div class="tiles" id="objects"></div>
+    </section>
+    <section>
+      <h2>Ground</h2>
+      <div class="tiles" id="ground"></div>
+      <div class="row" style="margin-top:.5rem">
+        <button class="toolbtn" id="erasetool" data-layer="erase">Erase</button>
+        <span>Left click paints, right click picks up what is there. Ctrl+Z undoes.</span>
+      </div>
+    </section>
+    <section>
+      <h2>Scripts</h2>
+      <div class="row" style="margin-bottom:.5rem">
+        <select id="scripts" size="1" style="flex:1"></select>
+        <button id="addscript">+ Script</button>
+        <button id="delscript">Remove</button>
+        <button class="toolbtn" id="scripttool" data-layer="script">Put on squares</button>
+      </div>
+      <div class="fields" style="margin-bottom:.4rem"><label for="scriptname">Name</label><input id="scriptname" maxlength="20" title="Intro runs at the start, Master after every move, RedGem, GreenGem and BlueGem when a gem is used"></div>
+      <textarea id="code" spellcheck="false"></textarea>
+      <div id="scripterror"></div>
+      <details>
+        <summary>The script language</summary>
+        <p><code>SWITCHON</code> … what happens when the square is stepped on; <code>SWITCHOFF</code> … when it is left.
+        <code>IF EQ a b</code> (also <code>NE LT GT LE GE</code>, and <code>IF INPUT "word"</code>) … <code>ELSE</code> … <code>ENDIF</code>;
+        <code>FOR R0 1 10</code> … <code>NEXT</code>. <code>LET ADD SUB MUL DIV</code> a register and a value;
+        <code>PRINT "text"</code>, <code>INPUT "question"</code>; <code>CHANGEMAP x y tile, x y tile</code>; <code>SWAPOVER</code>/<code>SWAPUNDER x1 y1 x2 y2</code>;
+        <code>GOTO x y x2 y2</code>; <code>REDRAW APPEAR WIN STOP POPUP TARGET</code>.</p>
+        <p>Values: numbers −100 to 100, <code>R0</code>–<code>R9</code>, <code>XGUY YGUY XPOS YPOS MOVES REDGEMS</code>…,
+        <code>UNDER(x, y)</code>, <code>OVER(x, y)</code>, <code>DELTA(a, b)</code> (a + b), <code>WALKABLE(tile)</code>.
+        All of it is in docs/PIT-FORMAT.md in the game's source.</p>
+      </details>
+    </section>
+  </div>
+</main>
+<script>/*DATA*/</script>
+<script type="module">/*CODE*/</script>
+</body>
+</html>

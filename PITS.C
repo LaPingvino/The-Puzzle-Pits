@@ -72,7 +72,7 @@ void  IncrementLevel(void);
 void  CheckLevelDone(void);
 void  GameMainLoop(void);
 
-int main()
+int main(int argc, char **argv)
 {
   WORD choice,menuitem,oldmenuitem,notdone,x;
   FILE *fp;
@@ -82,6 +82,8 @@ int main()
   static unsigned char menubg[48][192];
   WORD reached,chosen=0,entries[5],n,top,y;
   char firstlvl[]={'L'-6,'e'-8,'v'-10,'e'-12,'l'-14,'0'-16,'1'-18,0};
+
+  WORD playing=play_level(argc>1 ? argv[1] : NULL);  /* before the game goes to its data's folder */
 
   // Initialize SDL compatibility layer
   if (init_sdl_compat() < 0) {
@@ -100,12 +102,24 @@ int main()
   ChangeMouse(BLANKPOINTER);
   LoadShapes("gametiles",0);
 
-  LoadScreen(0);
-  SetPalette(2);
-  FadeIn();
-  Pause(120);
-  Clear(LOGIC);
-  FadeIn();
+  /* a level given to play (puzzle-pits level.pit, or the editor's Play
+     in a browser): straight into it, then the title screen */
+  if(playing){
+    strcpy(gamevars.level,PLAYLEVEL);
+    Clear(LOGIC);
+    FadeIn();
+    SetPalette(1);
+    GameMainLoop();
+    Clear(LOGIC);
+    FadeIn();
+  }else{
+    LoadScreen(0);
+    SetPalette(2);
+    FadeIn();
+    Pause(120);
+    Clear(LOGIC);
+    FadeIn();
+  }
 
   do{
     inkey=0xff;
@@ -1046,10 +1060,11 @@ WORD GameLoadLevel(void)
   if (strlen(gamevars.level) < 4 || strcmp(&gamevars.level[strlen(gamevars.level)-4], ".pit") != 0) {
     strcat(fname,".pit");
   }
-  if(!Exists(fname)) {
+  if(strcmp(gamevars.level,PLAYLEVEL)==0 && play_path) strcpy(fname,""); /* a level to play from elsewhere (play_level) */
+  if(!Exists(fname[0] ? fname : (char *)play_path)) {
     return 0;
   }
-  fp=ReadFile(fname);
+  fp=ReadFile(fname[0] ? fname : (char *)play_path);
 
   magic=ReadWord(fp);  //Magic Number
   if(magic!=0x0895){

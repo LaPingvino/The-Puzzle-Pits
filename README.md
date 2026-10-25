@@ -16,6 +16,12 @@ the [releases](https://github.com/LaPingvino/The-Puzzle-Pits/releases) have it f
 
 The game remembers the furthest level you reached: **Resume** on the title screen starts there, and **Choose Level** (Left and Right) any level before it. The arrow keys or the mouse move you; Enter or a click goes on. The F keys use what you carry, as shown beside them. F11 or Alt+Enter switches to full screen. The game's own instructions are in PITS95/readme.txt.
 
+## Make your own levels
+
+The level editor is online at **https://lapingvino.github.io/The-Puzzle-Pits/editor/**, and each release has it as one HTML file to use offline (`puzzle-pits-editor.html`). It opens Abe's levels or any `.PIT` file, paints the ground and the objects, and edits the levels' scripts as text. It saves `.PIT` files that both this game and the original DOS `PITS.EXE` read: put one in the `LEVELS` folder as `LEVELnn.PIT`. **Play** tries the level in the web game, and on the desktop `puzzle-pits mylevel.pit` plays a level file straight away.
+
+The level format and the script language are described in [docs/PIT-FORMAT.md](docs/PIT-FORMAT.md); `node tools/pit_test.mjs` checks that every one of Abe's levels reads and writes back byte for byte. `node tools/build-editor.mjs editor.html` builds the editor.
+
 ## Build
 
 You need [Zig](https://ziglang.org) 0.17 and SDL2's development files:

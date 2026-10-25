@@ -702,3 +702,49 @@ void progress_reached(const char *level) {
     }
 #endif
 }
+
+// A level to play straight away, from a file (puzzle-pits level.pit) or,
+// in a browser, from the editor's Play (it leaves the level in the page's
+// storage and opens the game with ?play): it is played as PLAYLEVEL, from
+// play_path. After it the next level (Play01) is not there, so the game
+// goes on to the title screen.
+const char *play_path;
+
+int play_level(const char *path) {
+#ifdef __EMSCRIPTEN__
+    (void)path;
+    int got = EM_ASM_INT({
+        if (location.search.indexOf('play') < 0) return 0;
+        let b64 = null;
+        try { b64 = localStorage.getItem('puzzle-pits-play'); } catch (e) {}
+        if (!b64) return 0;
+        FS.writeFile('/play.pit', Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+        return 1;
+    });
+    if (got) {
+        play_path = "/play.pit";
+    }
+    return got;
+#else
+    if (!path) {
+        return 0;
+    }
+    FILE *f = fopen(path, "rb"); // given on the command line
+    if (!f) {
+        fprintf(stderr, "puzzle-pits: cannot open %s\n", path);
+        return 0;
+    }
+    fclose(f);
+    // the whole path: the game goes to its data's folder next
+    static char whole[2048];
+    char here[1024];
+    int absolute = path[0] == '/' || path[0] == '\\' || (path[0] && path[1] == ':');
+    if (!absolute && getcwd(here, sizeof here)) {
+        snprintf(whole, sizeof whole, "%s/%s", here, path);
+        play_path = whole;
+    } else {
+        play_path = path;
+    }
+    return 1;
+#endif
+}

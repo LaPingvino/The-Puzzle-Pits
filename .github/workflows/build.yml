@@ -99,6 +99,10 @@ jobs:
           version: ${{ env.ZIG_VERSION }}
       - uses: mymindstorm/setup-emsdk@v14
       - run: zig build web
+      # the level editor beside the game, and its format checked against
+      # all of Abe's levels
+      - run: node tools/pit_test.mjs
+      - run: node tools/build-editor.mjs zig-out/web/editor/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: zig-out/web
@@ -123,10 +127,13 @@ jobs:
     needs: [linux, windows, macos]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+      # the level editor as one file, to use offline; Play opens the game online
+      - run: node tools/build-editor.mjs dist/puzzle-pits-editor.html https://lapingvino.github.io/The-Puzzle-Pits/
       - env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "The Puzzle Pits $GITHUB_REF_NAME" --generate-notes

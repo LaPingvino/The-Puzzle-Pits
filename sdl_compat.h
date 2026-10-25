@@ -54,6 +54,9 @@ uint16_t readmbutton(void);
 void relpos(int16_t *x, int16_t *y);
 void warpmouse(int x, int y);
 int progress_get(char *level);
+#define PLAYLEVEL "Play00" /* the name a level given to play has (play_level) */
+extern const char *play_path;
+int play_level(const char *path);
 void progress_reached(const char *level);
 
 // Keyboard functions
