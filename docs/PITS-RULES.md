@@ -57,7 +57,7 @@ A pit is 23 × 23 squares, x and y from 0 to 22; the squares along the edge (0 a
 
 Objects are drawn over two by two squares (section 8), so each object number is the first of four shapes; the stored value is always that first one.
 
-The player is stored in the file as over 100 on the square they start on. When the level starts, that square's over becomes 0 and the player's position is kept apart. A level without a player starts them on 1, 1.
+The player is stored in the file as over 100 on the square they start on. When the level starts, that square's over becomes 0 and the player's position is kept apart, and they face north. A level without a player starts them on 1, 1.
 
 Two over tiles are boxes *at home*: a blue barrel is a barrel on a blue target, a red crate a crate on a red target, a green chest a chest on a green target. A box's colour follows its ground (the tile rules, below): it is never placed at home except on its own target.
 
@@ -140,7 +140,7 @@ After the player has stepped, pushed or waited, in this order:
 1. **The moves**: the scripts' `MOVES` is the moves made modulo 100, `HECTOMOVES` the hundreds.
 2. **What the player stands on**: a gem or key is picked up (the ground becomes floor): a red, green or blue gem or key adds one to its count; the yellow gem makes it carried. (Not while the player is a ghost, section 6.)
 3. **Scripts, switched on**: the `Master` script; then, while a gem is in use, the `RedGem`, `GreenGem` or `BlueGem` script.
-4. **Arrows and glass**: every square with an arrow or glass on it, in reading order (top row first, left to right; squares a script has turned to arrows come after), where an object stands (an over of 29 or more):
+4. **Arrows and glass**: every square with an arrow or glass on it, where an object stands (an over of 29 or more). The squares are those found at the end of the last turn's checks, in reading order (top row first, left to right), so all arrows and glass take part, however they came there (glass from a chest breaking too); squares a script turns to arrows during this turn come after them.
    - On an arrow: the object moves one square the way the arrow points, if that square isn't the player (unless they are a ghost), its over is 0 or walkable, and its ground isn't grass (the *magic* sound).
    - On glass: if the object has a *last pushed* direction, it moves one square that way, by the same conditions (the *glass* sound); if it can't, its last pushed is cleared (it stops).
    - (Only squares in columns 1 to 20 take part: in the original, the list of these squares can't hold column 21, so arrows and glass there don't move anything.)
@@ -150,6 +150,10 @@ After the player has stepped, pushed or waited, in this order:
    - A barrel, crate or chest: the tile rules for it are applied again (as in the table), and on a plate that is up, the plate goes down and is pressed (noted).
 6. **The plates noted**, the last one noted first: a pressed plate's script runs switched on (*plate on* sound); a released plate's script runs switched off. A released plate stays down: its script is what puts it up again (`POPUP`).
 7. **The `Master` script, switched off.**
+
+### Holding a key
+
+Pushing ends when no direction is held: each new push waits the 25 ticks again. A push attempt that moves nothing ends the turn without the checks. A switch flips once a press (the key has to be let go before it flips again). Using a gem or key happens at once, without the turn's checks and without counting a move.
 
 ### From level to level
 
@@ -167,7 +171,7 @@ Clicking a square (the walking button) finds the shortest way there over squares
 
 - **The red gem** (F1): if one is carried and none is in use, it is in use (*magic* sound; the `RedGem` script runs switched on). Pressed again, it is put away: the `RedGem` script runs switched off, and one red gem is used up. While it is in use, and the level has no `RedGem` script, each square the player steps off becomes an arrow the way they went, if it was floor or an arrow.
 - **The blue gem** (F3): put in use the same way (the `BlueGem` script runs switched on). While it is in use, and the level has no `BlueGem` script, the next step pulls what stands behind the player (on the square the other way from where they step), if it is an object (21 or more): it moves into the square the player left (taking that square's *last pushed* as east, west, south or north; these aren't directions glass knows, so a pulled box doesn't slide), and the tile rules are applied to both squares. Then the blue gem is used up (one less) and out of use. Pressed again before a step: put away, used up, its script run switched off.
-- **The green gem** (F2): the player becomes a ghost. If one is carried and none is in use: the *magic* sound, the `GreenGem` script runs switched on; the player turns to face south (turning through the quarter if facing north), and changes into a ghost in five steps (section 8). The square they started on is remembered. As a ghost, the player can enter any square, and nothing they stand on is picked up; scripts reading what stands on their square see what is really there, not the player (unless the level has a `GreenGem` script). Pressed again, the ghost becomes the player again, if they are on a square whose ground is walkable, and either nothing stands there, or the square they started on is empty and what stands here is an object (21 or more) or walkable, or the level has a `GreenGem` script. Then, without a `GreenGem` script: something standing there that can't be walked on moves to the square they started on (with the tile rules on both); the player faces south, changes back in six steps, and what they stand on and the turn's checks follow as after a step. The gem is used up, out of use, and its script runs switched off. On a square where they can't become the player again, nothing happens.
+- **The green gem** (F2): the player becomes a ghost. If one is carried and none is in use: the *magic* sound, the `GreenGem` script runs switched on; the player turns to face south (from north through east), and changes into a ghost in five steps (section 8). The square they started on is remembered. As a ghost, the player can enter any square, and nothing they stand on is picked up; scripts reading what stands on their square see what is really there, not the player (unless the level has a `GreenGem` script). Pressed again, the ghost becomes the player again, if they are on a square whose ground is walkable, and either nothing stands there, or the square they started on is empty and what stands here is an object (21 or more) or walkable, or the level has a `GreenGem` script. Then, without a `GreenGem` script: something standing there that can't be walked on moves to the square they started on (with the tile rules on both); the player faces south, changes back in six steps, and what they stand on and the turn's checks follow as after a step. The gem is used up, out of use, and its script runs switched off. On a square where they can't become the player again, nothing happens.
 - **The yellow gem** (F4): once carried (it is not used up), it shows the whole pit, and nothing else happens.
 - **The keys** (F5 red, F6 green, F7 blue): with one carried, standing on a lock of that colour: one key is used, the lock becomes a plate that is down, and that square's script runs switched on.
 
