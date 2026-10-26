@@ -115,7 +115,7 @@ If the box can't move: a chest (or green chest) breaks where it stands, its grou
 
 ### Moving an object
 
-When an object moves from one square to the next (pushed, carried by an arrow, slid on glass): it leaves its square (over 0), arrives on the next, the tile rules (below) are applied to both squares, the square it came to gets the way it went as *last pushed*, and the one it left none. An object that has arrived on an arrow or glass this turn isn't moved by it again in the same turn.
+When an object moves from one square to the next (pushed, carried by an arrow, slid on glass): it leaves its square (over 0), arrives on the next, the tile rules (below) are applied to both squares, the square it came to gets the way it went as *last pushed*, and the one it left none. A square an object has arrived on this turn, however it came (pushed, carried by an arrow, slid on glass), takes no further part in this turn's arrows and glass: a box pushed onto an arrow moves on from the next turn, not in the same one.
 
 ### The tile rules
 
@@ -225,7 +225,7 @@ Each square in view is drawn in this order, all with the square's top left as th
 
 1. Its ground: the shape with its ground's number. Water, lava and lava cooling are animated: the shape is the ground's number plus a frame, 0 to 3, which goes up by one with each square drawn (across the view, row by row) and wraps; so each square is a different frame, and the frames shift each time the pit is drawn. Glass sparkles: one square of the view at a time, the shape after glass (72, then 73, 74...) is shown with the same frame count; which square sparkles moves on through the view by 17 squares at a time.
 2. Through their masks, the parts of the objects that reach into it: an object is drawn over two by two squares, its own square and the ones to its left, above, and above left. So on this square come: the object here (its shape + 3, its bottom right quarter), the object to the right (+2), the object below (+1), the object below right (+0). Objects further down and right are drawn over those further up and left.
-3. After drawing, lava cooling moves on: where it was drawn with frame 1, the first step becomes the second and the second becomes lava.
+3. After drawing, lava cooling moves on: where it was drawn with frame 1, the first step becomes the second and the second becomes lava. (So how fast lava cools depends on the drawing; both steps act as lava, so it doesn't change play, and an engine that draws differently may cool at another pace.)
 
 The player is drawn as an object on their square (in the second step, as everything else), with these shapes:
 
