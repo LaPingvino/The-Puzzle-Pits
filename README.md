@@ -28,7 +28,9 @@ The level format and the script language are described in [docs/PIT-FORMAT.md](d
 
 ## Rocks'n'Diamonds
 
-Pits is a Sokoban variant, so its levels also play in [Rocks'n'Diamonds](https://www.artsoft.org/rocksndiamonds/) as a Sokoban level set (R'n'D's own level files, and the same levels as `levels.xsb` for other Sokoban games), drawn with the game's own pictures: `node tools/pit2rnd.mjs PITS95/LEVELS the_puzzle_pits`, then put the folder in `~/.rocksndiamonds/levels` (each release has it zipped). Barrels, crates and chests become Sokoban's boxes and the coloured targets its goals. Water, lava and holes become walls, and keys, arrows, gems and the stories are left out. The set's README.txt says what each level loses; levels 2, 3, 9, 15, 20 and 37 are exactly as in Pits.
+[rocksndiamonds-pits](https://github.com/LaPingvino/rocksndiamonds-pits) adds an engine for Pits to Rocks'n'Diamonds, as it has for Supaplex and others: it plays the game's own level files (Abe's, and any made with the editor) by its own rules, scripts and all, with its own pictures and sounds. It is proposed to R'n'D as patches, and was written from [docs/PITS-RULES.md](docs/PITS-RULES.md) and [docs/PIT-FORMAT.md](docs/PIT-FORMAT.md) alone.
+
+Without it, the levels also play in an unchanged R'n'D, made of its custom elements: `node tools/pit2rnd.mjs PITS95/LEVELS the_puzzle_pits`, then put the folder in `~/.rocksndiamonds/levels` (each release has it zipped). Most of Pits' rules work there (coloured targets, arrows, glass, water, lava, holes, the gems); what plates, switches and signs do in a level's scripts doesn't. The set's README.txt says what each level loses.
 
 ## Build
 
