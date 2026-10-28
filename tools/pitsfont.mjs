@@ -13,13 +13,13 @@ import zlib from "node:zlib";
 import path from "node:path";
 
 const root = new URL("../", import.meta.url).pathname;
-const [data = path.join(root, "PITS95"), out = "graphics"] = process.argv.slice(2);
 
 const ZOOM = 2; // a font pixel, as the pit's: 2 by 2
 const CELL_W = 16, CELL_H = 18; // 30 columns of 16 fit R'n'D's playfield (560)
 const PER_LINE = 16;
 
-// the letters
+// the font's artwork: { files: { name: PNG bytes }, conf: graphicsinfo.conf text }
+export function pitsFontArtwork(data) {
 const font = fs.readFileSync(path.join(data, "PLASMA1.FNT"));
 const letters = [];
 for (let p = 0; p < font.length && font[p] !== 0; ) {
@@ -74,7 +74,7 @@ function stone() {
 	return { W, H, img };
 }
 
-function png({ W, H, img }) {
+function pngBytes({ W, H, img }) {
 	const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
 	const crc = (b) => { let c = 0xffffffff; for (const x of b) c = crcTable[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
 	const chunk = (type, body) => {
@@ -89,15 +89,12 @@ function png({ W, H, img }) {
 	return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", head), chunk("IDAT", zlib.deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
 }
 
-fs.mkdirSync(out, { recursive: true });
-fs.writeFileSync(path.join(out, "pits_font_stone.png"), png(sheet("stone")));
-fs.writeFileSync(path.join(out, "pits_font_shadow.png"), png(sheet("shadow")));
-fs.writeFileSync(path.join(out, "pits_stone.png"), png(stone()));
+const files = { "pits_font_stone.png": pngBytes(sheet("stone")), "pits_font_shadow.png": pngBytes(sheet("shadow")), "pits_stone.png": pngBytes(stone()) };
 const font_conf = (token, file) => [
 	`${token}:`.padEnd(40) + file,
 	...[["x", 0], ["y", 0], ["width", CELL_W], ["height", CELL_H], ["frames", letters.length], ["frames_per_line", PER_LINE]].map(([k, v]) => `${token}.${k}:`.padEnd(40) + v),
 ].join("\n");
-fs.writeFileSync(path.join(out, "graphicsinfo.conf"), `# The Puzzle Pits' own letters (made by tools/pitsfont.mjs from PLASMA1.FNT)
+const conf = (`# The Puzzle Pits' own letters (made by tools/pitsfont.mjs from PLASMA1.FNT)
 
 # the scripts' text: engraved, on the game's grey stone
 ${font_conf("font.envelope_1", "pits_font_stone.png")}
@@ -119,4 +116,15 @@ font.input_1.MAIN.y:                    0
 font.input_1.MAIN.width:                32
 font.input_1.MAIN.height:               32
 `);
-console.log(`${letters.length} letters (${String.fromCharCode(32)} to ${String.fromCharCode(31 + letters.length)}) -> ${out}`);
+return { files, conf, letters: letters.length };
+}
+
+
+if (process.argv[1] && new URL(import.meta.url).pathname === path.resolve(process.argv[1])) {
+	const [data = path.join(root, "PITS95"), out = "graphics"] = process.argv.slice(2);
+	const art = pitsFontArtwork(data);
+	fs.mkdirSync(out, { recursive: true });
+	for (const [name, bytes] of Object.entries(art.files)) fs.writeFileSync(path.join(out, name), bytes);
+	fs.writeFileSync(path.join(out, "graphicsinfo.conf"), art.conf);
+	console.log(`${art.letters} letters -> ${out}`);
+}

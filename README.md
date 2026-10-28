@@ -28,7 +28,12 @@ The level format and the script language are described in [docs/PIT-FORMAT.md](d
 
 ## Rocks'n'Diamonds
 
-[rocksndiamonds-pits](https://github.com/LaPingvino/rocksndiamonds-pits) adds an engine for Pits to Rocks'n'Diamonds, as it has for Supaplex and others: it plays the game's own level files (Abe's, and any made with the editor) by its own rules, scripts and all, with its own pictures and sounds. It is proposed to R'n'D as patches, and was written from [docs/PITS-RULES.md](docs/PITS-RULES.md) and [docs/PIT-FORMAT.md](docs/PIT-FORMAT.md) alone.
+[rocksndiamonds-pits](https://github.com/LaPingvino/rocksndiamonds-pits) adds an engine for Pits to Rocks'n'Diamonds, as it has for Supaplex and others: it plays the game's own level files (Abe's, and any made with the editor) by its own rules, scripts and all, with its own pictures and sounds. It is proposed to R'n'D as patches, and was written from [docs/PITS-RULES.md](docs/PITS-RULES.md) and [docs/PIT-FORMAT.md](docs/PIT-FORMAT.md) alone. R'n'D's level editor edits those levels' pits (with elements made by `tools/rndset.mjs`) and saves them as `.PIT` files, scripts untouched. Scripts can also be kept as text beside a level and put into it:
+
+```sh
+node tools/pitscripts.mjs LEVEL01.PIT > LEVEL01.pits      # a level's scripts as text
+node tools/pitscripts.mjs LEVEL01.PIT LEVEL01.pits        # and into the level
+```
 
 Without it, the levels also play in an unchanged R'n'D, made of its custom elements: `node tools/pit2rnd.mjs PITS95/LEVELS the_puzzle_pits`, then put the folder in `~/.rocksndiamonds/levels` (each release has it zipped). Most of Pits' rules work there (coloured targets, arrows, glass, water, lava, holes, the gems); what plates, switches and signs do in a level's scripts doesn't. The set's README.txt says what each level loses.
 

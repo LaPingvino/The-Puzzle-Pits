@@ -179,7 +179,7 @@ first_level:                    1
 // ---- the pictures: 48 pixels a square, Pits' 24 doubled (sharp); one
 // row of the sheet a picture, its frames along it, and graphicsinfo.conf
 
-export function rndArtwork(shapes) {
+export function rndArtwork(shapes, { customOnly = false } = {}) {
 	const T = 48;
 	const tile = () => new Uint8ClampedArray(T * T * 4);
 	const ground = (n) => { // a ground tile, doubled
@@ -239,9 +239,10 @@ export function rndArtwork(shapes) {
 	add("player_1", [crop(100 + 8)]);
 	// Pits' rules: the grounds (water and lava moving), the boxes on them
 	function picture(ce) {
-		if (ce === "start") return [ground(53)];
+		if (ce === "start") return [crop(108, 53)]; // the player, where they start
 		if (ALIAS[ce]) return picture(ALIAS[ce]);
 		if (ce === "wall") return [wall()];
+		if (STANDING[ce]) return [crop(STANDING[ce], 53, 12, 12)];
 		if (GHOSTS.includes(ce)) { // as it is, see-through while the player is a ghost
 			const [g, m] = ce.split("~"), t = picture(g)[0];
 			if (m !== "out") for (let i = 3; i < t.length; i += 4) t[i] = t[i] && 150;
@@ -279,9 +280,10 @@ export function rndArtwork(shapes) {
 	// squares (RND_VIEW of 48 inside its 2-pixel border), in the middle of
 	// where the standard one is
 	const pad = (s, n) => s + " ".repeat(Math.max(1, n - s.length));
-	let conf = "game.tile_size:                 48\ngame.use_masked_elements:       true\n" +
+	let conf = customOnly ? "" : "game.tile_size:                 48\ngame.use_masked_elements:       true\n" +
 		"viewport.playfield.x:           14\nviewport.playfield.y:           14\nviewport.playfield.width:       532\nviewport.playfield.height:      532\n\n";
 	rows.forEach((r, j) => {
+		if (customOnly && !r.name.startsWith("custom_")) return;
 		conf += `${pad(r.name + ":", 33)}pits.png\n${pad(r.name + ".xpos:", 33)}0\n${pad(r.name + ".ypos:", 33)}${j}\n${pad(r.name + ".frames:", 33)}${r.frames.length}\n${pad(r.name + ".tile_size:", 33)}${T}\n`;
 		if (r.frames.length > 1) conf += `${pad(r.name + ".delay:", 33)}${r.name.startsWith("custom_") ? 8 : 4}\n`;
 		conf += "\n";
@@ -371,7 +373,10 @@ const BOXES = Object.keys(RND_OBJECTS).flatMap((k) => [...Object.keys(GROUND_TIL
 
 // custom_1, custom_2 ... in this order, the same in every level, so one
 // artwork set draws them all
-export const RND_CE_NAMES = [...Object.keys(GROUND_TILES), "start", ...BOXES, "counter", ...Object.keys(ALIAS), ...BUTTONS, "wall", ...GHOSTS, ...GREEN];
+// what else stands on a square: a sign, a pillar, a switch (walls to R'n'D;
+// kept apart so a level edited in R'n'D's editor keeps them)
+const STANDING = { sign: 5, pillar: 9, switch_off: 13, switch_on: 17 };
+export const RND_CE_NAMES = [...Object.keys(GROUND_TILES), "start", ...BOXES, "counter", ...Object.keys(ALIAS), ...BUTTONS, "wall", ...GHOSTS, ...GREEN, ...Object.keys(STANDING)];
 export const rndCe = (name) => EL_CUSTOM_1 + RND_CE_NAMES.indexOf(name);
 // groups of elements, at most 16 each (more are split into groups of groups)
 const GROUP_LIST = [];
@@ -398,6 +403,8 @@ function micro(out, conf, value, size) {
 }
 function customChunk(el, d) {
 	const out = [el >> 8, el & 255];
+	const name = RND_CE_NAMES[el - EL_CUSTOM_1], text = name ? rndDescription(name) : "";
+	if (text) { out.push(0xc1, 0, text.length); for (const ch of text) out.push(ch.charCodeAt(0) & 255); } // its name in R'n'D's editor
 	micro(out, 0x81, (d.props ?? []).reduce((a, p) => a | (1 << EP[p]), 1 << EP.CAN_MOVE_INTO_ACID) >>> 0, 4);
 	if (d.moveEnter !== undefined) micro(out, 0x4c, d.moveEnter, 2);
 	if (d.moveLeave !== undefined) micro(out, 0x4d, d.moveLeave, 2);
@@ -445,6 +452,9 @@ export function rndRules(left, gems = true) {
 	const armed = (c) => ({ events: [CE_EV.CHANGE_OF_X], trigger: rndGroup(`${c}_buttons`), triggerPage: 1 }); // a button clicked (its page 0)
 	const ghostly = (group) => ({ events: [CE_EV.CHANGE_OF_X], trigger: rndGroup(group), triggerPage: 1 }); // green clicked: a ghost, or back
 	custom("wall", { props: ["CAN_CHANGE", "INDESTRUCTIBLE"], pages: [{ ...ghostly("green_off"), target: rndCe("wall~ghost") }] });
+	// as walls: the ghost walks through them as through a wall (and they come
+	// back as one)
+	for (const k of Object.keys(STANDING)) custom(k, { props: ["CAN_CHANGE", "INDESTRUCTIBLE"], pages: [{ ...ghostly("green_off"), target: rndCe("wall~ghost") }] });
 	for (const g of GHOSTLY) {
 		custom(`${g}~ghost`, { props: ["WALKABLE_OVER", "CAN_CHANGE"], pages: [
 			{ events: [CE_EV.ENTERED_BY_PLAYER], target: rndCe(`${g}~in`) },
@@ -542,7 +552,8 @@ export function rndCells(level) {
 			if (g?.endsWith("_target")) targets++;
 			let e;
 			if (o === 100) e = rndCe("start");
-			else if ([1, 5, 9, 13, 17].includes(o)) e = rndCe("wall");
+			else if (o === 1) e = rndCe("wall");
+			else if (Object.values(STANDING).includes(o)) e = rndCe(Object.keys(STANDING).find((k) => STANDING[k] === o));
 			else if (KIND_OF[o] && g && BOXES.includes(`${KIND_OF[o]}@${g}`)) {
 				e = rndCe(`${KIND_OF[o]}@${g}`);
 				if (g === RND_OBJECTS[KIND_OF[o]].own) home++;
@@ -552,4 +563,49 @@ export function rndCells(level) {
 		}
 	}
 	return { cells, left: targets ? targets - home : null };
+}
+
+// ---- for R'n'D's own Puzzle Pits engine: its editor shows a pit in these
+// elements (a level set's template.level and artwork), and gives the
+// squares back as the game's ground and object
+
+const GROUND_TEXT = { floor: "floor", mark: "marked tile", plate: "plate", red_target: "red target", green_target: "green target", blue_target: "blue target",
+	arrow_up: "arrow up", arrow_right: "arrow right", arrow_down: "arrow down", arrow_left: "arrow left", glass: "glass", wood: "wood", grass: "grass",
+	bridge: "crate in water", hole_crate: "crate in a hole", hole: "hole", water: "water", lava: "lava", red_gem: "red gem", green_gem: "green gem",
+	blue_gem: "blue gem", yellow_gem: "yellow gem", red_key: "red key", green_key: "green key", blue_key: "blue key", red_lock: "red lock",
+	green_lock: "green lock", blue_lock: "blue lock" };
+
+// an element's name for R'n'D's editor (at most 32 characters)
+export function rndDescription(name) {
+	if (GROUND_TEXT[name]) return GROUND_TEXT[name];
+	if (name === "start") return "player (on floor)";
+	if (name === "wall" || STANDING[name]) return { wall: "wall", sign: "wall with text", pillar: "pillar", switch_off: "switch (off)", switch_on: "switch (on)" }[name];
+	if (BOXES.includes(name)) {
+		const [kind, g] = name.split("@");
+		return g.includes(">") ? "" : `${kind} on ${GROUND_TEXT[g]}`.slice(0, 32);
+	}
+	return "";
+}
+
+// the elements that are squares of a pit: [element, ground, object]
+export function rndPitsTable() {
+	const rows = [];
+	for (const [g, t] of Object.entries(GROUND_TILES)) rows.push([rndCe(g), t, 0]);
+	rows.push([rndCe("start"), 53, 100]);
+	for (const name of BOXES) {
+		const [kind, g] = name.split("@");
+		if (g.includes(">")) continue;
+		const o = RND_OBJECTS[kind];
+		const over = g === o.own ? o.home : g === "water" && o.water ? o.water : (g === "hole" || g === "wood") && o.hole ? o.hole : o.tile;
+		rows.push([rndCe(name), GROUND_TILES[g], over]);
+	}
+	// walls and what stands like one: nothing under them, as in the game's levels
+	rows.push([rndCe("wall"), 0, 1]);
+	for (const [k, o] of Object.entries(STANDING)) rows.push([rndCe(k), 0, o]);
+	return rows;
+}
+
+// template.level: the elements with their names and rules
+export function rndTemplate() {
+	return levelFile("The Puzzle Pits", "Abe Pralle", [[0]], [], rndRules(0, true), []);
 }
