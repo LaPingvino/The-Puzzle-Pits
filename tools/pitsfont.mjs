@@ -110,5 +110,13 @@ background.envelope_1.height:           ${CELL_H * 3}
 
 # on the pit (the typing room, the pointer): white with a shadow
 ${font_conf("font.input_1", "pits_font_shadow.png")}
+
+# the main menu's (the player's name) as R'n'D has it: a level set's
+# font.input_1 would otherwise be it too
+font.input_1.MAIN:                      RocksFontBig.png
+font.input_1.MAIN.x:                    0
+font.input_1.MAIN.y:                    0
+font.input_1.MAIN.width:                32
+font.input_1.MAIN.height:               32
 `);
 console.log(`${letters.length} letters (${String.fromCharCode(32)} to ${String.fromCharCode(31 + letters.length)}) -> ${out}`);
