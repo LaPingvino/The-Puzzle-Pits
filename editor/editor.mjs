@@ -6,6 +6,7 @@
 import { readPit, writePit, disassemble, assemble, SIZE } from "../tools/pit.mjs";
 import { readShapes, drawSquare, blit, TILE } from "../tools/tiles.mjs";
 import { rndConvert, rndXsb, rndLevelFile, rndPitsLevelFile, rndPitsGrid, rndLost, rndLevelinfo, rndArtwork, rndCe } from "../tools/rnd.mjs";
+import { scriptBlocks } from "./blocks.mjs";
 
 const $ = (id) => document.getElementById(id);
 const bytesOf = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -129,6 +130,7 @@ function restore(s) { Object.assign(level, JSON.parse(s)); draw(); }
 function remember() { undo.push(snapshot()); if (undo.length > 200) undo.shift(); redo.length = 0; }
 
 function paint([x, y]) {
+	if (blocksMode && blocksPanel?.pickSquare(x, y)) return; // a square for the selected block
 	if (x < 1 || y < 1 || x > SIZE - 2 || y > SIZE - 2) { status("The pit's edge is always empty"); return; }
 	if (tool.layer === "under") level.under[x][y] = tool.tile;
 	else if (tool.layer === "over") {
@@ -227,6 +229,7 @@ function showScripts() {
 	});
 	list.value = current;
 	$("code").value = current >= 0 ? scripts[current].text : "";
+	if (blocksMode && blocksPanel) blocksPanel.show($("code").value);
 	$("code").disabled = current < 0;
 	$("scriptname").value = current >= 0 ? scripts[current].name : "";
 	$("scripterror").textContent = "";
@@ -256,6 +259,31 @@ function keepText() {
 		return false;
 	}
 }
+
+// the script as blocks (editor/blocks.mjs), kept the same as the text
+let blocksPanel = null, blocksMode = false;
+async function showAs(blocks) {
+	if (blocks && !blocksPanel) {
+		$("blockshint").textContent = "Loading the blocks…";
+		$("blocks").style.display = ""; // Blockly can't start in a hidden element
+		try {
+			blocksPanel = await scriptBlocks($("blocks"), [...OBJECTS, ...GROUND], (text) => { $("code").value = text; keepText(); });
+		} catch (e) {
+			$("blockshint").textContent = e.message;
+			$("blocks").style.display = "none";
+			return;
+		}
+	}
+	blocksMode = blocks;
+	$("astext").classList.toggle("on", !blocks);
+	$("asblocks").classList.toggle("on", blocks);
+	$("code").style.display = blocks ? "none" : "";
+	$("blocks").style.display = blocks ? "" : "none";
+	$("blockshint").textContent = blocks ? "Right-click a block to turn it into text, or text into blocks; select a \"square\" block and click the pit to fill it in" : "";
+	if (blocks) { keepText(); blocksPanel.resize(); blocksPanel.show($("code").value); }
+}
+$("astext").addEventListener("click", () => showAs(false));
+$("asblocks").addEventListener("click", () => showAs(true));
 
 $("scripts").addEventListener("change", (e) => selectScript(+e.target.value));
 $("code").addEventListener("change", () => { keepText(); showScriptsKeepingText(); });

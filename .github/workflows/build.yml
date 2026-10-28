@@ -102,6 +102,7 @@ jobs:
       # the level editor beside the game, and its format checked against
       # all of Abe's levels
       - run: node tools/pit_test.mjs
+      - run: node tools/script_test.mjs
       - run: node tools/build-editor.mjs zig-out/web/editor/index.html
       - uses: actions/upload-pages-artifact@v3
         with:

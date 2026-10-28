@@ -119,7 +119,13 @@
         <button class="toolbtn" id="scripttool" data-layer="script">Put on squares</button>
       </div>
       <div class="fields" style="margin-bottom:.4rem"><label for="scriptname">Name</label><input id="scriptname" maxlength="20" title="Intro runs at the start, Master after every move, RedGem, GreenGem and BlueGem when a gem is used"></div>
+      <div class="row" style="margin-bottom:.4rem">
+        <button class="toolbtn on" id="astext" title="The script as text">Text</button>
+        <button class="toolbtn" id="asblocks" title="The script as blocks; text can be a block too (right-click a block to turn it into text, and back)">Blocks</button>
+        <span id="blockshint"></span>
+      </div>
       <textarea id="code" spellcheck="false"></textarea>
+      <div id="blocks" style="display:none;height:560px;border:1px solid var(--line);border-radius:5px;background:#fff"></div>
       <div id="scripterror"></div>
       <details>
         <summary>The script language</summary>
@@ -133,6 +139,8 @@
         <p>Values: numbers −100 to 100, <code>R0</code>–<code>R9</code>, <code>XGUY YGUY XPOS YPOS MOVES REDGEMS</code>…,
         <code>UNDER(x, y)</code>, <code>OVER(x, y)</code>, <code>DELTA(a, b)</code> (a + b), <code>WALKABLE(tile)</code>.
         All of it is in docs/PIT-FORMAT.md in the game's source.</p>
+        <p>As blocks: drag them from the left; a block's menu (right-click) turns it into text, and typed text into blocks, so the two mix.
+        Select a "square … becomes" block and click the pit to fill in its square. The blocks are loaded from the internet the first time.</p>
       </details>
     </section>
   </div>

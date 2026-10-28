@@ -144,6 +144,8 @@ const REG = Object.fromEntries(Object.entries(REGS).map(([k, v]) => [v, +k]));
 // those that look something up: their arguments follow
 const LOOKUPS = { 228: ["WALKABLE", 1], 229: ["DELTA", 2], 230: ["UNDER", 2], 231: ["OVER", 2], 232: ["LASTPUSHED", 2] };
 const LOOKUP = Object.fromEntries(Object.entries(LOOKUPS).map(([k, [n, a]]) => [n, [+k, a]]));
+// the names, for tools that show the language (the editor's blocks)
+export const VALUE_NAMES = { registers: Object.values(REGS).sort((a, b) => REG[a] - REG[b]), lookups: Object.fromEntries(Object.values(LOOKUPS)) };
 
 // a value at c[p]: a number (0..100, 101..200 for -100..-1), a register
 // or a lookup; returns [text, next position]
@@ -199,7 +201,7 @@ export function disassemble(c, offset) {
 // ---- assembling text back into bytecode
 
 // split a line into words, strings and parenthesised lookups kept whole
-function tokens(line) {
+export function tokens(line) {
 	const out = [];
 	const re = /\s*("(?:[^"\\]|\\.)*"|[A-Z]+\([^()]*(?:\([^()]*\)[^()]*)*\)|,|[^\s,]+)/gy;
 	let m;
@@ -229,7 +231,7 @@ function encodeValue(t, out) {
 	out.push(REG[t]);
 }
 
-function splitArgs(s) {
+export function splitArgs(s) {
 	const args = [];
 	let depth = 0, cur = "";
 	for (const ch of s) {
