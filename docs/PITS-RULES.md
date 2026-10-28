@@ -57,7 +57,7 @@ A pit is 23 × 23 squares, x and y from 0 to 22; the squares along the edge (0 a
 
 Objects are drawn over two by two squares (section 8), so each object number is the first of four shapes; the stored value is always that first one.
 
-The player is stored in the file as over 100 on the square they start on. When the level starts, that square's over becomes 0 and the player's position is kept apart, and they face north. A level without a player starts them on 1, 1.
+The player is stored in the file as over 100 on the square they start on. When the level starts, that square's over becomes 0 and the player's position is kept apart, they face north, and that square is their last square (section 3). A level without a player starts them on 1, 1.
 
 Two over tiles are boxes *at home*: a blue barrel is a barrel on a blue target, a red crate a crate on a red target, a green chest a chest on a green target. A box's colour follows its ground (the tile rules, below): it is never placed at home except on its own target.
 
@@ -80,7 +80,7 @@ The game runs in *turns*. A turn is when the player does something: steps, pushe
 ### The player's input
 
 - **A direction** (a key held): the player faces that way and tries to step that way (below).
-- **Wait** (Return or Space with no direction): the player stays where they are, and the turn's checks follow as after a step; the moves count goes up by one after the checks (after a step, before them), so scripts see the count before the wait.
+- **Wait** (Return or Space with no direction): the player stays where they are, their own square becomes their last square (so `LASTX`, `LASTY` are their position: some levels' scripts take this as "the player waited"), and the turn's checks follow as after a step; the moves count goes up by one after the checks (after a step, before them), so scripts see the count before the wait.
 - **The mouse**: pointing at a square turns the player towards it; a mouse button held steps that way, one square a turn, as a direction key. Turning by the mouse to the opposite direction goes through a quarter turn first (east to south to west, and so on), a turn each. The other button walks to the square pointed at, along the shortest way (below).
 - **F1 to F4**: use the red, green, blue or yellow gem (section 6). **F5 to F7**: use a red, green or blue key (section 6).
 - **Restart and quit** start the level again or end it.
@@ -157,7 +157,7 @@ Pushing ends when no direction is held: each new push waits the 25 ticks again. 
 
 ### From level to level
 
-Gems and keys carried when a level is won are carried into the next level; restarting a level gives back what was carried when it started. (A game that plays levels separately can start each with none.)
+Gems and keys carried when a level is won are carried into the next level; restarting a level gives back what was carried when it started. A level started on its own (the original's password entry, choosing a level) starts with none. Levels count on this: level 12 needs a red gem saved from level 11 ("If you don't have one you'll have to redo Level 11"). Carried means the counts (red, green, blue gems, the yellow gem, keys); no gem is in use when a level starts.
 
 ### Winning
 
