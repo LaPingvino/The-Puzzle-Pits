@@ -39,7 +39,7 @@ files.forEach((name, i) => {
 	report.push(`${String(i + 1).padStart(2)} ${level.title.padEnd(26)} ${lost.length ? lost.join(", ") : "as in Pits"}`);
 });
 fs.writeFileSync(path.join(out, "levels.xsb"), xsb); // the same levels as Sokoban text, for other Sokoban games
-fs.writeFileSync(path.join(out, "levelinfo.conf"), rndLevelinfo("The Puzzle Pits", "Abe Pralle", files.length));
+fs.writeFileSync(path.join(out, "levelinfo.conf"), rndLevelinfo("The Puzzle Pits (custom elements)", "Abe Pralle", files.length));
 const art = rndArtwork(readShapes(...["TILES1.DAT", "TILES2.DAT", "TILES3.DAT"].map((f) => new Uint8Array(fs.readFileSync(path.join(data, f))))));
 fs.writeFileSync(path.join(out, "graphics", "pits.png"), png(art.width, art.height, art.rgba));
 fs.writeFileSync(path.join(out, "graphics", "graphicsinfo.conf"), art.conf);
