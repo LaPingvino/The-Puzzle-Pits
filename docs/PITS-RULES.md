@@ -109,9 +109,9 @@ The box moves to the square beyond it, if:
 - that square's over is 0 or walkable, and its ground isn't grass; or
 - a chest stands there (a chest or a green chest): that chest breaks. Its square's ground becomes glass, and the box takes its place.
 
-Then the box moves (as *moving an object*, below), the moves count goes up by one, and the player steps into the box's square if its ground is walkable for them (the square left behind, the gems and the walking picture as in a step). Then the turn's checks.
+Then the box moves (as *moving an object*, below), the moves count goes up by one, and the player steps into the box's square if its ground (as it was before the push) is walkable for them (the square left behind, the gems and the walking picture as in a step). Then the turn's checks.
 
-If the box can't move: a chest (or green chest) breaks where it stands, its ground becomes glass, the moves count goes up by one, and the player steps there as above (then the turn's checks); any other box stays.
+If the box can't move: a chest (or green chest) breaks where it stands, its ground becomes glass, the moves count goes up by one, and the player steps there if its ground was walkable for them before it became glass (so not onto glass that was water a moment ago; the square left behind, the gems and the walking picture as in a step), then the turn's checks; any other box stays.
 
 ### Moving an object
 
