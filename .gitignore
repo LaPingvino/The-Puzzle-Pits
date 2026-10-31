@@ -37,3 +37,4 @@ Thumbs.db
 *.temp
 *.bak
 zig-out/
+/editor.html
