@@ -36,6 +36,22 @@ static int key_buffer_tail = 0;
 // Direct keypress handling for inkey
 static int pending_inkey = 0;
 
+// typed: characters from the page's phone keyboard (web/shell.html), each
+// handed to the game as the key it would get for that character
+static unsigned char typed[64];
+static int typed_head, typed_tail;
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+void pits_type(int c) {
+    int next = (typed_tail + 1) % 64;
+    if (next != typed_head && c > 0 && c < 256) {
+        typed[typed_tail] = (unsigned char)c;
+        typed_tail = next;
+    }
+}
+
 // External keytable array from game code
 extern char keytable[256];
 
@@ -556,6 +572,11 @@ int get_next_keypress(void) {
     if (pending_inkey > 0) {
         int key = pending_inkey;
         pending_inkey = 0;
+        return key;
+    }
+    if (typed_head != typed_tail) {
+        int key = typed[typed_head];
+        typed_head = (typed_head + 1) % 64;
         return key;
     }
     

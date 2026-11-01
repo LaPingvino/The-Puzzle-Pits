@@ -18,13 +18,16 @@
   button { font: inherit; margin: 0 .3em; padding: .3em .9em; background: #333; color: #eee; border: 1px solid #666; border-radius: 4px; cursor: pointer; }
   button:hover { background: #444; }
   a { color: #8cf; }
+  /* the phone keyboard's input: on the page (a hidden input gets no keyboard) but out of sight */
+  #typing { position: fixed; left: -100px; top: 0; width: 50px; font-size: 16px; opacity: 0; }
 </style>
 </head>
 <body>
 <div id="game"><canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas></div>
 <div id="bar">
   <p id="status">Loading The Puzzle Pits…</p>
-  <p><button id="full" title="Alt+Enter">Full screen</button><button id="again" hidden>Play again</button></p>
+  <p><button id="full" title="Alt+Enter">Full screen</button><button id="again" hidden>Play again</button><button id="kbd" hidden>Keyboard</button></p>
+  <input id="typing" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Type for the game">
   <p>Arrow keys or the mouse to move, Enter to go on; the sound starts with your first key or click.
     Abe Pralle's 1995 DOS game, <a href="https://github.com/LaPingvino/The-Puzzle-Pits">on GitHub</a>.
     Make your own pits in the <a href="editor/">level editor</a>.</p>
@@ -47,6 +50,30 @@
     },
   };
   canvas.addEventListener("click", function () { canvas.focus(); });
+  // Touch screens: a Keyboard button brings up the phone's keyboard for the
+  // riddles and the password. Each character goes to the game as a key
+  // (pits_type); "  " stays in the box so a Backspace still has something
+  // to delete.
+  (function () {
+    var kbd = document.getElementById("kbd"), typing = document.getElementById("typing");
+    var KEEP = "  ";
+    function send(c) { if (Module._pits_type) Module._pits_type(c); }
+    function reset() { typing.value = KEEP; typing.setSelectionRange(KEEP.length, KEEP.length); }
+    if (matchMedia("(pointer: coarse)").matches || /[?&]kbd/.test(location.search)) kbd.hidden = false;
+    kbd.addEventListener("click", function () { reset(); typing.focus(); });
+    typing.addEventListener("input", function () {
+      var v = typing.value;
+      if (v.length < KEEP.length) for (var i = v.length; i < KEEP.length; i++) send(8);
+      else for (var ch of v.slice(KEEP.length)) { var c = ch.codePointAt(0); if (c >= 32 && c <= 126) send(c); }
+      reset();
+    });
+    // Enter goes to the game; no key event from this box reaches the game twice
+    function own(e) {
+      e.stopPropagation();
+      if (e.type === "keydown" && e.key === "Enter") { e.preventDefault(); send(13); }
+    }
+    ["keydown", "keyup", "keypress"].forEach(function (t) { typing.addEventListener(t, own); });
+  })();
   document.getElementById("again").addEventListener("click", function () { location.reload(); });
   function toggleFull() {
     if (document.fullscreenElement) document.exitFullscreen();
