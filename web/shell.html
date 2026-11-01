@@ -50,6 +50,17 @@
     },
   };
   canvas.addEventListener("click", function () { canvas.focus(); });
+  // Sound from the first tap: browsers start audio only from a user's touch,
+  // click or key, and iOS Safari only when resume() runs inside that event.
+  // Emscripten's SDL2 resumes its AudioContext later, from its audio
+  // callback, which iOS refuses; so each touch, click or key resumes it here
+  // until it runs (the context only exists once the game opens its audio).
+  ["touchend", "pointerdown", "keydown"].forEach(function (t) {
+    document.addEventListener(t, function () {
+      var ctx = Module.SDL2 && Module.SDL2.audioContext;
+      if (ctx && ctx.state === "suspended") ctx.resume();
+    }, true);
+  });
   // Touch screens: a Keyboard button brings up the phone's keyboard for the
   // riddles and the password. Each character goes to the game as a key
   // (pits_type); "  " stays in the box so a Backspace still has something
