@@ -23,6 +23,10 @@ One bounded chunk (~10 min) per tick, top unchecked item first. Commit and push 
 
 ## Blocked
 
-- Collaborator invite for Abe: waiting for his GitHub username from Joop ("Abe's new identity").
+- (DONE 2026-11-01) Abe invited as collaborator: brombres (write; pending his acceptance).
+- 2026-11-01: no local web build — zig cc can't stand in for emcc (no wasm32-emscripten libc, no SDL port or
+  JS glue). Waiting for Joop to install emscripten (`sudo pacman -S emscripten`; emcc in /usr/lib/emscripten).
+  web/shell.html already has item 1(a) (fractional fit under 2×, no pan/zoom) — uncommitted until it is
+  checked in a local build.
 
 ## Tick log
