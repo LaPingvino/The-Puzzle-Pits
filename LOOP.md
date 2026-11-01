@@ -11,7 +11,7 @@ One bounded chunk (~10 min) per tick, top unchecked item first. Commit and push 
 
 ## Queue
 
-1. [ ] Mobile (Joop 2026-11-01: "Pits mobile support! … for all other gh pages projects as well"; approved):
+1. [x] Mobile — done but for a real-phone try (iOS) and the menu question below (Joop 2026-11-01: "Pits mobile support! … for all other gh pages projects as well"; approved):
    (a) the page fills a phone screen: landscape, a fractional scale when the whole-number scale would leave
    the 320×200 screen tiny, no page scroll/zoom under the fingers (touch-action, viewport);
    (b) on-screen controls on touch screens only — REVISED after reading PITS.C: almost every Enter/Space wait
@@ -24,6 +24,10 @@ One bounded chunk (~10 min) per tick, top unchecked item first. Commit and push 
    (d) sound starts on the first tap.
    Check: tapping already moves the player (SDL maps touches to the mouse) — confirm in a mobile emulation
    (headless Chromium with touch) before building on it.
+
+## Questions for Joop
+
+- The title menu takes only keys (arrows + Enter, or e/s/q): on a phone it works through the Keyboard button (type s). Make the menu lines tappable (a tap on a line chooses it)? That touches Abe's menu code (interface, not rules), so asking first.
 
 ## Blocked
 
@@ -39,3 +43,4 @@ One bounded chunk (~10 min) per tick, top unchecked item first. Commit and push 
 - 2026-11-01 tick 3 (item 1c, NOT YET VERIFIED IN GAME) — a Keyboard button (touch screens, or ?kbd) focuses an off-screen input; each typed character goes to the game through pits_type() (sdl_compat.c: a 64-char queue read after the key from SDL, as inkey), Backspace as 8 (two spaces kept in the box), Enter as 13; the box's key events don't reach SDL (no doubles). Built (zig build web), export present, button shows; headless Chromium (swiftshader, --timeout up to 42 s, PITS_KEYS via ENV in preRun) stays on the opening logo, so the password screen check is open. NEXT: get the headless run past the logo (or a native test calling pits_type), then type 'abc' + Backspace on the password screen; then 1d.
 - 2026-11-01 tick 4 (item 1c, verified) — PITS_KEYS learns 'text (typed through pits_type, \b = Backspace); native run with SDL_VIDEODRIVER=offscreen: Return, Return, 'abc\bd → the password screen shows 'abd_'. 1c done. NEXT: 1d sound on first tap (check the web build's audio unlock on touchstart).
 - 2026-11-01 tick 5 (item 1d) — sound from the first tap: web/shell.html resumes SDL2's AudioContext (Module.SDL2.audioContext) inside each touchend/pointerdown/keydown until it runs (Emscripten's SDL2 resumes it only from its audio callback, which iOS Safari refuses). Checked with Chromium's DevTools protocol, autoplay requiring a gesture: 'suspended' before, 'running' after one trusted tap. Item 1 now waits only on a real-phone try (iOS especially).
+- 2026-11-01 tick 6 (item 1, check) — touch emulation over the DevTools protocol (real taps on the 844×390 page): the menu ignores taps (keys only), 's' typed via the Keyboard box starts a game, taps turn the intro's pages, a finger held left/right of the player walks him (the view scrolls, the pointer shows the arrow). Item 1 done but for a real phone; asked Joop about a tappable menu.
