@@ -70,3 +70,4 @@ To test without a window, run the game with `SDL_VIDEODRIVER=offscreen` from PIT
 - `PITS_KEYS="13000:Return,15000:Right,16000:@60;40,16500:Click"` presses keys at those times (milliseconds), moves the mouse and clicks.
 - `PITS_QUIT_AFTER=20000` makes the game quit by itself after that many milliseconds.
 - `PITS_SHOT=screen.ppm` writes what's on screen when the game ends.
+- In `PITS_KEYS`, `'text` types text as the web page's phone keyboard does (`\b` is Backspace), e.g. `PITS_KEYS="3000:Return,5000:Return,7500:'abc\bd"`. Without a display, `SDL_VIDEODRIVER=offscreen SDL_AUDIODRIVER=dummy` runs the game unseen.

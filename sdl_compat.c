@@ -385,7 +385,9 @@ static void key_event(SDL_Keycode sym, int down, int repeat) {
 // keyboard: each key (an SDL key name) is pressed at its time and held
 // for 250 ms, as a finger would (the game looks at the keys held a few
 // times a second, and waits for them to be let go); "@x;y" moves the mouse
-// to x, y (the game's pixels) and "Click" holds its left button.
+// to x, y (the game's pixels) and "Click" holds its left button; "'text"
+// types text as the page's phone keyboard does (pits_type; \b in it is
+// Backspace).
 static void scripted_keys(void) {
     static const char *next;
     static int started;
@@ -422,6 +424,17 @@ static void scripted_keys(void) {
         if (name[0] == '@') { // @x;y: the mouse to x, y
             sscanf(name + 1, "%d;%d", &mouse_x, &mouse_y);
             mouse_moved = 1;
+            continue;
+        }
+        if (name[0] == '\'') { // 'text: typed through pits_type
+            for (const char *c = name + 1; *c; c++) {
+                if (c[0] == '\\' && c[1] == 'b') {
+                    pits_type(8);
+                    c++;
+                } else {
+                    pits_type((unsigned char)*c);
+                }
+            }
             continue;
         }
         if (strcmp(name, "Click") == 0) { // the left button, held as a key
