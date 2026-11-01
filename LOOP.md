@@ -24,9 +24,10 @@ One bounded chunk (~10 min) per tick, top unchecked item first. Commit and push 
 ## Blocked
 
 - (DONE 2026-11-01) Abe invited as collaborator: brombres (write; pending his acceptance).
-- 2026-11-01: no local web build — zig cc can't stand in for emcc (no wasm32-emscripten libc, no SDL port or
-  JS glue). Waiting for Joop to install emscripten (`sudo pacman -S emscripten`; emcc in /usr/lib/emscripten).
-  web/shell.html already has item 1(a) (fractional fit under 2×, no pan/zoom) — uncommitted until it is
-  checked in a local build.
+- (RESOLVED 2026-11-01) emscripten installed. Local web build: PATH=/usr/lib/emscripten:$PATH
+  EM_CACHE=$TMPDIR/emcache ZIG_GLOBAL_CACHE_DIR=… zig build web (the first run fails once while emscripten
+  generates its libraries; the second succeeds). Headless check: chromium --timeout=20000 (not
+  --virtual-time-budget: the game loop never lets virtual time settle).
 
 ## Tick log
+- 2026-11-01 tick 1 (item 1a) — web/shell.html: viewport without user scaling, touch-action/overscroll none, no text selection; fit() keeps whole-number scaling but uses the largest fractional scale when that would be under 2× (a phone). Local build + headless: 844×390 → 1.52× (was 1×), 1280×800 → 3× (unchanged). NEXT: 1b on-screen controls (touch screens only).

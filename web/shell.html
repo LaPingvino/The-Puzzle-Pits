@@ -2,14 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>The Puzzle Pits</title>
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: #ccc; font: 14px sans-serif; }
   body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
   #game { display: flex; align-items: center; justify-content: center; background: #000; }
   #game:fullscreen { width: 100vw; height: 100vh; }
-  canvas { image-rendering: pixelated; outline: none; }
+  canvas { image-rendering: pixelated; outline: none; touch-action: none; }
+  /* a phone: no page panning, zooming or text selection under the fingers */
+  html, body { overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  #game { touch-action: none; }
   #bar { margin: .6em 1em; text-align: center; }
   #bar p { margin: .3em 0; }
   button { font: inherit; margin: 0 .3em; padding: .3em .9em; background: #333; color: #eee; border: 1px solid #666; border-radius: 4px; cursor: pointer; }
@@ -59,14 +62,17 @@
     }
   }, true);
   // the 320x200 screen at the biggest whole multiple that fits, so every
-  // pixel is as wide as the next (a fraction made the letters uneven)
+  // pixel is as wide as the next (a fraction made the letters uneven) — but
+  // when that would leave it under twice its size (a phone), as large as fits
+  // instead: a usable screen matters more there than even pixels
   function fit() {
     var full = document.fullscreenElement === game;
     var room = full ? innerHeight : innerHeight - document.getElementById("bar").offsetHeight - 16;
-    var k = Math.max(1, Math.floor(Math.min(innerWidth / 320, room / 200)));
-    if (innerWidth < 320) k = innerWidth / 320; // a narrow phone: smaller
-    canvas.style.width = 320 * k + "px";
-    canvas.style.height = 200 * k + "px";
+    var fitK = Math.min(innerWidth / 320, room / 200);
+    var k = Math.max(1, Math.floor(fitK));
+    if (k < 2) k = Math.max(fitK, 0.5);
+    canvas.style.width = Math.floor(320 * k) + "px";
+    canvas.style.height = Math.floor(200 * k) + "px";
   }
   addEventListener("resize", fit);
   document.addEventListener("fullscreenchange", fit);
