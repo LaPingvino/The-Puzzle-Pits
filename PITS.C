@@ -167,6 +167,20 @@ int main(int argc, char **argv)
       oldmenuitem=menuitem;
       while(oldmenuitem==menuitem && notdone){
         CheckMouse();
+        /* a tap (click) on a line chooses it; on "Choose Level < nn >" and the
+           pack line, a tap on an arrow turns it instead (Joop 2026-11-02:
+           tappable menu lines — the menu only, the game is Abe's) */
+        if(button1 && my>=top-2 && my<top-2+8*n && mx>=136){  /* ShadowText draws a line 2 rows above its y */
+          int row=(my-top+2)/8, tapx=mx;
+          while(button1) CheckMouse();  /* let go first, so the tap does not reach the next screen */
+          menuitem=row;
+          if(entries[row]==4 && tapx>=245 && tapx<269) inkey=31;       /* "<" */
+          else if(entries[row]==4 && tapx>=285) inkey=30;              /* ">" */
+          else if(entries[row]==5 && tapx<157) inkey=31;
+          else if(entries[row]==5 && tapx>=141+8*((int)strlen(pack_name(pack))<20?(int)strlen(pack_name(pack)):20)+16) inkey=30;
+          else inkey=13;
+          oldmenuitem=-1;
+        }
         switch(inkey){
           case 13:  choice=entries[menuitem]; oldmenuitem=-1; break;
           case 28:
