@@ -27,7 +27,7 @@ One bounded chunk (~10 min) per tick, top unchecked item first. Commit and push 
 
 ## Questions for Joop
 
-- The title menu takes only keys (arrows + Enter, or e/s/q): on a phone it works through the Keyboard button (type s). Make the menu lines tappable (a tap on a line chooses it)? That touches Abe's menu code (interface, not rules), so asking first.
+- (ANSWERED 2026-11-02, Joop: 'Making lines tappable in Pits is ok!') The title menu takes only keys (arrows + Enter, or e/s/q): on a phone it works through the Keyboard button (type s). Make the menu lines tappable (a tap on a line chooses it)? That touches Abe's menu code (interface, not rules), so asking first.
 
 ## Blocked
 
@@ -44,3 +44,4 @@ One bounded chunk (~10 min) per tick, top unchecked item first. Commit and push 
 - 2026-11-01 tick 4 (item 1c, verified) — PITS_KEYS learns 'text (typed through pits_type, \b = Backspace); native run with SDL_VIDEODRIVER=offscreen: Return, Return, 'abc\bd → the password screen shows 'abd_'. 1c done. NEXT: 1d sound on first tap (check the web build's audio unlock on touchstart).
 - 2026-11-01 tick 5 (item 1d) — sound from the first tap: web/shell.html resumes SDL2's AudioContext (Module.SDL2.audioContext) inside each touchend/pointerdown/keydown until it runs (Emscripten's SDL2 resumes it only from its audio callback, which iOS Safari refuses). Checked with Chromium's DevTools protocol, autoplay requiring a gesture: 'suspended' before, 'running' after one trusted tap. Item 1 now waits only on a real-phone try (iOS especially).
 - 2026-11-01 tick 6 (item 1, check) — touch emulation over the DevTools protocol (real taps on the 844×390 page): the menu ignores taps (keys only), 's' typed via the Keyboard box starts a game, taps turn the intro's pages, a finger held left/right of the player walks him (the view scrolls, the pointer shows the arrow). Item 1 done but for a real phone; asked Joop about a tappable menu.
+- 2026-11-02 (Joop's answer, recorded from the goloco session) — tappable title-menu lines approved (interface only; Abe's rules untouched): workable next Pits tick.
