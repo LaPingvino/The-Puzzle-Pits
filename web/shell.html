@@ -154,10 +154,12 @@
     //   Hold   an arrow is down while the finger is on it (a quick tap: one step);
     //   Toggle a tap puts an arrow down until it (or another) is tapped — for touch screens where a long press
     //          opens the right-click menu (Chromebooks);
-    //   Push   the next arrow tap holds it just long enough to push one box or barrel, then lets go and the
-    //          mode goes back to Hold. The game moves a box once the guy has leant on it PUSHDELAY (25) of its
-    //          Timer units (~60 a second: 0.42 s) and again every 0.42 s after: 600 ms pushes exactly once.
-    var PUSH_MS = 600, pushed = null; // pushed: the arrow a Push holds (lifting the finger doesn't let it go)
+    //   Push   the next arrow tap holds it until the game counts a move (pits_moves: one step or one push —
+    //          a box goes once the guy has leant on it 0.42 s, and again every 0.42 s after, so the arrow is
+    //          let go the moment the first move is counted), at most PUSH_MAX_MS if nothing moves (a wall, a
+    //          stuck box); then the mode goes back to Hold.
+    var PUSH_MAX_MS = 1500, pushed = null; // pushed: the arrow a Push holds (lifting the finger doesn't let it go)
+    function moves() { return Module._pits_moves ? Module._pits_moves() : -1; }
     var modeBtn = pad.querySelector(".mode"), modes = ["Hold", "Toggle", "Push"], mode = 0;
     try { mode = localStorage.getItem("pits-pad-mode") === "Toggle" ? 1 : 0; } catch (e) {}
     function showMode() { modeBtn.textContent = modes[mode]; modeBtn.classList.toggle("on", mode > 0); }
@@ -196,7 +198,16 @@
       if (mode === 2 && arrow) { // Push: held for one push, then back to Hold
         press(b);
         pushed = b;
-        setTimeout(function () { if (held === b) release(); if (pushed === b) pushed = null; }, PUSH_MS);
+        var start = moves(), since0 = performance.now();
+        (function watch() {
+          if (pushed !== b) return;
+          if (moves() !== start || performance.now() - since0 >= PUSH_MAX_MS) {
+            pushed = null;
+            if (held === b) release();
+            return;
+          }
+          requestAnimationFrame(watch);
+        })();
         setMode(0);
         return;
       }

@@ -2444,3 +2444,12 @@ void GameMainLoop(void)
     }
   }
 }
+
+/* pits_moves: the moves counter (Moves: on screen), read by the web page's d-pad: in its Push mode it holds
+   an arrow until this changes — one step or one push, whatever the timing — and lets go (an interface
+   addition; the game itself does not use it). */
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+EMSCRIPTEN_KEEPALIVE
+#endif
+int pits_moves(void) { return gamevars.moves; }
