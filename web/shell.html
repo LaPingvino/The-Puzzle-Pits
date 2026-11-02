@@ -80,6 +80,20 @@
       if (ctx && ctx.state === "suspended") ctx.resume();
     }, true);
   });
+  // A touch screen: any pointer that is one (a Chromebook's touch screen next to its touchpad counts, though
+  // its main pointer is the touchpad), a touch that has happened, or ?pad / ?kbd in the address. The first
+  // touch reveals the touch controls if they weren't shown yet.
+  var touched = false;
+  function touchy() {
+    return touched || matchMedia("(any-pointer: coarse)").matches || /[?&](pad|kbd)/.test(location.search);
+  }
+  var onFirstTouch = [];
+  document.addEventListener("touchstart", function () {
+    if (touched) return;
+    touched = true;
+    onFirstTouch.forEach(function (f) { f(); });
+    if (typeof fit === "function") fit();
+  }, { capture: true, passive: true });
   // Touch screens: a Keyboard button brings up the phone's keyboard for the
   // riddles and the password. Each character goes to the game as a key
   // (pits_type); "  " stays in the box so a Backspace still has something
@@ -89,7 +103,8 @@
     var KEEP = "  ";
     function send(c) { if (Module._pits_type) Module._pits_type(c); }
     function reset() { typing.value = KEEP; typing.setSelectionRange(KEEP.length, KEEP.length); }
-    if (matchMedia("(pointer: coarse)").matches || /[?&]kbd/.test(location.search)) kbd.hidden = false;
+    if (touchy()) kbd.hidden = false;
+    onFirstTouch.push(function () { kbd.hidden = false; });
     kbd.addEventListener("click", function () { reset(); typing.focus(); });
     typing.addEventListener("input", function () {
       var v = typing.value;
@@ -107,10 +122,10 @@
     // the game brings up the phone keyboard (a page may only focus an input inside the tap itself), the
     // Keyboard button shows, and for the password a Cancel button sends Esc (back to the menu). When the
     // game stops reading, the keyboard goes away.
-    var cancel = document.getElementById("cancel"), coarse = matchMedia("(pointer: coarse)").matches, mode = 0;
+    var cancel = document.getElementById("cancel"), mode = 0;
     function textMode() { return Module._pits_text_entry ? Module._pits_text_entry() : 0; }
     canvas.addEventListener("pointerup", function () {
-      if (textMode() && coarse) { reset(); typing.focus(); }
+      if (textMode() && touchy()) { reset(); typing.focus(); }
     });
     cancel.addEventListener("click", function () { send(27); });
     setInterval(function () {
@@ -118,7 +133,7 @@
       if (m === mode) return;
       mode = m;
       cancel.hidden = m !== 1;
-      if (coarse) kbd.hidden = false;
+      if (touchy()) kbd.hidden = false;
       if (!m && document.activeElement === typing) { typing.blur(); canvas.focus(); }
       fit();
     }, 150);
@@ -129,8 +144,8 @@
   // be missed.
   var pad = document.getElementById("pad");
   (function () {
-    if (!matchMedia("(pointer: coarse)").matches && !/[?&]pad/.test(location.search)) return;
-    pad.hidden = false;
+    if (touchy()) pad.hidden = false;
+    onFirstTouch.push(function () { pad.hidden = false; });
     var held = null, since = 0;
     function key(k, down) { if (Module._pits_key) Module._pits_key(k, down ? 1 : 0); }
     function press(b) {
@@ -173,7 +188,7 @@
   if (!document.fullscreenEnabled) document.getElementById("full").hidden = true;
   function fit() {
     var full = document.fullscreenElement === game;
-    var side = matchMedia("(pointer: coarse)").matches && innerWidth > innerHeight;
+    var side = touchy() && innerWidth > innerHeight;
     document.body.classList.toggle("phone-side", side);
     var room = full || side ? innerHeight : innerHeight - document.getElementById("bar").offsetHeight - 16;
     // on its side with the d-pad: the d-pad's column on the left and the buttons' on the right are kept free
