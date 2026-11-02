@@ -395,6 +395,17 @@ static void key_event(SDL_Keycode sym, int down, int repeat) {
     sync_keytable();
 }
 
+// pits_key is the web page's on-screen d-pad: key 0 up, 1 down, 2 left,
+// 3 right, 4 Enter, pressed (down 1) or let go (0) as the keyboard's own
+// keys are, so the game sees exactly what an arrow key held down gives it.
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+void pits_key(int key, int down) {
+    static const SDL_Keycode syms[5] = { SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT, SDLK_RETURN };
+    if (key >= 0 && key < 5) key_event(syms[key], down != 0, 0);
+}
+
 // scripted presses PITS_KEYS="ms:Key,ms:Key" for testing without a
 // keyboard: each key (an SDL key name) is pressed at its time and held
 // for 250 ms, as a finger would (the game looks at the keys held a few
