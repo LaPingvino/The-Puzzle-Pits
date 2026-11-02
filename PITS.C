@@ -20,6 +20,7 @@ WORD  editxc=0, edityc=0;
 WORD  under[23][23],over[23][23],pitcode[23][23];
 WORD  tilemenu[10];
 char  NumberString[]={"1234567890"};
+extern int pits_text_mode;  /* sdl_compat.c: what the game is reading as text (0 none, 1 password, 2 riddle answer) */
 WORD  letgo1;  //user: let go of mouse button #1!
 WORD  copysidebar=0;
 WORD  redgems,greengems,bluegems,yellowgems,redkeys,greenkeys,bluekeys;
@@ -231,6 +232,7 @@ int main(int argc, char **argv)
           ShadowText(141,164,password,x,1);
           ShadowText(141+TxtLength(password,x),164,"_",1,16);
           ScreenSwap();
+          pits_text_mode=1;  /* the web page: a tap brings up the phone keyboard, and a Cancel button */
           do{
             inkey=0xff;
             CheckMouse();
@@ -238,9 +240,11 @@ int main(int argc, char **argv)
               if(x<20) password[x++]=inkey;
             }else{
               if(inkey==8 && x>0) x--;
+              if(inkey==27){ x=0; inkey=13; }  /* Esc: out, as Enter on an empty line (an interface addition) */
             }
           }while(inkey==0xff);
         }while(inkey!=13);
+        pits_text_mode=0;
         password[x]=0;
         if(x==0){
           gamevars.level[0]=0;
@@ -938,6 +942,7 @@ void PrintText(CodePtr *pos,WORD len,WORD input)
     if(i>=len && input){  //get user input
       x=0;
       inkey=0xff;
+      pits_text_mode=2;  /* the web page: a tap brings up the phone keyboard (no cancel: the riddle wants its answer) */
       while(inkey!=13){
         Boxf(3,y-7,200,10,5);
         StoneText(4,y,input_line,x,0);
@@ -952,6 +957,7 @@ void PrintText(CodePtr *pos,WORD len,WORD input)
         }
         if(inkey==8 && x>0) x--;   //backspace
       }
+      pits_text_mode=0;
       input_line[x]=0;  //null terminate string
       strcpy(scanbuffer,input_line);
       sscanf(scanbuffer,"%hd",&regs[REG_INPUTVALUE-201]);  /* a WORD: 16 bits (%d wrote 32, over the next register) */

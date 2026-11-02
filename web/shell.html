@@ -20,13 +20,20 @@
   a { color: #8cf; }
   /* the phone keyboard's input: on the page (a hidden input gets no keyboard) but out of sight */
   #typing { position: fixed; left: -100px; top: 0; width: 50px; font-size: 16px; opacity: 0; }
+  /* a phone on its side: the game takes the whole height; the buttons sit small in a corner, over the black
+     margin beside it, and the keyboard help (for keyboards) is left out */
+  body.phone-side #bar { position: fixed; top: env(safe-area-inset-top, 0px); right: env(safe-area-inset-right, 0px); margin: 6px; z-index: 5; }
+  body.phone-side #bar p:not(#buttons) { display: none; }
+  body.phone-side #bar button { display: block; margin: 0 0 6px; padding: .45em .8em; background: rgba(40,40,40,.85); width: 100%; }
+  body.phone-side #bar button[hidden] { display: none; }
+  #cancel { background: #533; border-color: #866; }
 </style>
 </head>
 <body>
 <div id="game"><canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas></div>
 <div id="bar">
   <p id="status">Loading The Puzzle Pits…</p>
-  <p><button id="full" title="Alt+Enter">Full screen</button><button id="again" hidden>Play again</button><button id="kbd" hidden>Keyboard</button></p>
+  <p id="buttons"><button id="full" title="Alt+Enter">Full screen</button><button id="again" hidden>Play again</button><button id="kbd" hidden>Keyboard</button><button id="cancel" hidden title="Esc">Cancel</button></p>
   <input id="typing" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Type for the game">
   <p>Arrow keys or the mouse to move, Enter to go on; the sound starts with your first key or click.
     Abe Pralle's 1995 DOS game, <a href="https://github.com/LaPingvino/The-Puzzle-Pits">on GitHub</a>.
@@ -84,6 +91,25 @@
       if (e.type === "keydown" && e.key === "Enter") { e.preventDefault(); send(13); }
     }
     ["keydown", "keyup", "keypress"].forEach(function (t) { typing.addEventListener(t, own); });
+    // While the game reads typed text (pits_text_entry: 1 the level password, 2 a riddle's answer) a tap on
+    // the game brings up the phone keyboard (a page may only focus an input inside the tap itself), the
+    // Keyboard button shows, and for the password a Cancel button sends Esc (back to the menu). When the
+    // game stops reading, the keyboard goes away.
+    var cancel = document.getElementById("cancel"), coarse = matchMedia("(pointer: coarse)").matches, mode = 0;
+    function textMode() { return Module._pits_text_entry ? Module._pits_text_entry() : 0; }
+    canvas.addEventListener("pointerup", function () {
+      if (textMode() && coarse) { reset(); typing.focus(); }
+    });
+    cancel.addEventListener("click", function () { send(27); });
+    setInterval(function () {
+      var m = textMode();
+      if (m === mode) return;
+      mode = m;
+      cancel.hidden = m !== 1;
+      if (coarse) kbd.hidden = false;
+      if (!m && document.activeElement === typing) { typing.blur(); canvas.focus(); }
+      fit();
+    }, 150);
   })();
   document.getElementById("again").addEventListener("click", function () { location.reload(); });
   function toggleFull() {
@@ -103,9 +129,13 @@
   // pixel is as wide as the next (a fraction made the letters uneven) — but
   // when that would leave it under twice its size (a phone), as large as fits
   // instead: a usable screen matters more there than even pixels
+  // the Full screen button only where the page can go full screen (not an iPhone's Safari)
+  if (!document.fullscreenEnabled) document.getElementById("full").hidden = true;
   function fit() {
     var full = document.fullscreenElement === game;
-    var room = full ? innerHeight : innerHeight - document.getElementById("bar").offsetHeight - 16;
+    var side = matchMedia("(pointer: coarse)").matches && innerWidth > innerHeight;
+    document.body.classList.toggle("phone-side", side);
+    var room = full || side ? innerHeight : innerHeight - document.getElementById("bar").offsetHeight - 16;
     var fitK = Math.min(innerWidth / 320, room / 200);
     var k = Math.max(1, Math.floor(fitK));
     if (k < 2) k = Math.max(fitK, 0.5);

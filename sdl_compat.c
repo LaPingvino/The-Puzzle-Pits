@@ -41,6 +41,16 @@ static int pending_inkey = 0;
 static unsigned char typed[64];
 static int typed_head, typed_tail;
 
+// What the game is reading as typed text: 0 nothing, 1 the level password
+// (Esc cancels), 2 a riddle's answer. The web page asks, to bring up the
+// phone keyboard on a tap and to offer Cancel.
+int pits_text_mode = 0;
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
+int pits_text_entry(void) { return pits_text_mode; }
+
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE
 #endif
@@ -143,7 +153,11 @@ int init_sdl_compat(void) {
     // drawn at 320x200 whatever the window's size, and the mouse's
     // position told in those pixels
     SDL_RenderSetLogicalSize(sdl_renderer, 320, 200);
+#ifndef __EMSCRIPTEN__
     SDL_RenderSetIntegerScale(sdl_renderer, SDL_TRUE); // even pixels: whole multiples, a border round them
+#endif
+    // (the web page sizes the canvas itself — whole multiples where they fit, as large as fits on a phone —
+    // so SDL must not round it down again: under twice the size that drew the game at 1x in a black border)
 
     // Create texture for VGA buffer
     sdl_texture = SDL_CreateTexture(
