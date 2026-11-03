@@ -27,6 +27,9 @@
   body.phone-side #bar button { display: block; margin: 0 0 6px; padding: .45em .8em; background: rgba(40,40,40,.85); width: 100%; }
   body.phone-side #bar button[hidden] { display: none; }
   #cancel { background: #533; border-color: #866; }
+  /* full screen with the d-pad (touch screens): the whole page goes full screen, so the d-pad and the buttons
+     stay; the keyboard help is left out */
+  body.page-full #bar p:not(#buttons) { display: none; }
   /* the on-screen d-pad (touch screens): beside the game on a phone on its side, under it upright */
   #pad { position: fixed; z-index: 4; display: grid; grid-template-columns: repeat(3, var(--cell)); grid-template-rows: repeat(3, var(--cell)) auto; gap: 4px; touch-action: none; --cell: 44px;
          -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -226,9 +229,12 @@
     });
   })();
   document.getElementById("again").addEventListener("click", function () { location.reload(); });
+  // Full screen: the game alone on a keyboard machine; with the d-pad showing (a touch screen) the whole page,
+  // since only what is inside the full-screen element is shown and the d-pad lives beside the game.
   function toggleFull() {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else if (game.requestFullscreen) game.requestFullscreen().then(function () { canvas.focus(); });
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    var el = pad.hidden ? game : document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen().then(function () { canvas.focus(); });
   }
   document.getElementById("full").addEventListener("click", toggleFull);
   // Alt+Enter, as on the desktop (before the game takes it for Enter)
@@ -247,6 +253,8 @@
   if (!document.fullscreenEnabled) document.getElementById("full").hidden = true;
   function fit() {
     var full = document.fullscreenElement === game;
+    document.body.classList.toggle("page-full", document.fullscreenElement === document.documentElement);
+    document.getElementById("full").textContent = document.fullscreenElement ? "Exit full screen" : "Full screen";
     var side = touchy() && innerWidth > innerHeight;
     document.body.classList.toggle("phone-side", side);
     var room = full || side ? innerHeight : innerHeight - document.getElementById("bar").offsetHeight - 16;
