@@ -105,6 +105,9 @@ jobs:
       - run: node tools/script_test.mjs
       - run: node tools/pitscripts_test.mjs
       - run: node tools/build-editor.mjs zig-out/web/editor/index.html
+      # the site's own domain (it takes effect with the repository's Pages
+      # setting, Settings > Pages > Custom domain)
+      - run: cp CNAME zig-out/web/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: zig-out/web
